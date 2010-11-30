@@ -3,6 +3,9 @@
 ;;;; Usage:
 ;;;; 1> (defparameter population (create-initial-population 1))
 ;;;; 2> (evaluate-population population *fitness-function* *input*)
+;;;;
+;;;; Notes to self:
+;;;; * #'sb-introspect:function-lambda-list
 
 ;;; Specials
 
@@ -38,6 +41,18 @@
                  do (format t "~8@S | ~24@S | ~24@S~%" in out target))))
 
 
+(defun n-nodes (tree)
+  "Returns the number of nodes in TREE, including the leaves."
+  (let ((nodes 1))
+    (labels ((traverse-nodes (subtree)
+               (loop for node in subtree
+                     do (incf nodes)
+                        (when (listp node)
+                          (traverse-nodes node)))))
+      (traverse-nodes tree))
+    nodes))
+
+
 (defun random-elt (sequence)
   (let ((length (length sequence)))
     (when (> length 0)
@@ -57,6 +72,39 @@
 (defun random-lambda (operators)
   (append1 '(lambda (=input=))
            (random-form operators)))
+
+
+(defun random-node (tree)
+  "Returns a random node from TREE."
+  (let* ((index 1)
+         (nodes-1 (- (n-nodes tree) 1))
+         (random-node (+ (random nodes-1) 1)))
+    (labels ((traverse-nodes (subtree)
+               (loop for node in subtree
+                     do (when (= index random-node)
+                          (return-from random-node node))
+                        (incf index)
+                        (when (listp node)
+                          (traverse-nodes node)))))
+      (traverse-nodes tree))))
+
+
+(defun replace-node (tree node-index new-node)
+  "Returns a new tree with SUBTREE in place of the old node at NODE-INDEX of
+  TREE."
+  (let ((index 0))
+    (labels ((traverse-nodes (subtree)
+               (loop for node in subtree
+                     do (incf index)
+                     when (= index node-index)
+                       collect new-node
+                     when (and (/= index node-index)
+                               (not (listp node)))
+                       collect node
+                     when (and (/= index node-index)
+                               (listp node))
+                       collect (traverse-nodes node))))
+      (traverse-nodes tree))))
 
 
 (defun run-lambda (lambda input)
