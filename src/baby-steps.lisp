@@ -7,13 +7,21 @@
 ;;;; Notes to self:
 ;;;; * #'sb-introspect:function-lambda-list
 
-;;; Specials
+;;; Packages
 
-(defparameter *operators* '(+ - * /))
+(defpackage :baby-steps
+  (:use :cl))
+
+(in-package :baby-steps)
+
+
+;;; Specials
 
 (defparameter *fitness-function* (lambda (r) (* pi (* r r))))
 
 (defparameter *input* '(1 23 456))
+
+(defparameter *operators* '(+ - * /))
 
 
 ;;; Function
@@ -25,6 +33,14 @@
 (defun create-initial-population (&optional (size 10))
   (loop repeat size
         collect (random-lambda *operators*)))
+
+
+(defun cross-over (tree1 tree2)
+  (let ((rnode1 (random-node tree1))
+        (rnode2 (random-node tree2)))
+    (list
+     :tree1 (replace-node tree1 (getf rnode1 :index) (getf rnode2 :node))
+     :tree2 (replace-node tree2 (getf rnode2 :index) (getf rnode1 :node)))))
 
 
 (defun evaluate-population (population fitness-function input)
@@ -39,6 +55,12 @@
                  for out = (run-lambda lambda in)
                  for target = (funcall fitness-function in)
                  do (format t "~8@S | ~24@S | ~24@S~%" in out target))))
+
+
+(defun mutate (tree operators)
+  (let ((rform (random-form operators))
+        (rnode (random-node tree)))
+    (replace-node tree (getf rnode :index) rform)))
 
 
 (defun n-nodes (tree)
@@ -82,7 +104,8 @@
     (labels ((traverse-nodes (subtree)
                (loop for node in subtree
                      do (when (= index random-node)
-                          (return-from random-node node))
+                          (return-from random-node (list :index index
+                                                         :node node)))
                         (incf index)
                         (when (listp node)
                           (traverse-nodes node)))))
