@@ -16,6 +16,21 @@
 (in-package :baby-steps)
 
 
+;;; Classes
+
+;; FITNESS and N-NODES can be deduced but I use them in PRINT-OBJECT and don't
+;; want to recalculate them every time I print objects to the REPL.
+(defclass mote ()
+  ((fitness :accessor fitness :initarg :fitness)
+   (n-nodes :accessor n-nodes :initarg :n-nodes)
+   (tree :accessor tree :initarg :tree)))
+
+
+(defmethod print-object ((obj mote) stream)
+  (print-unreadable-object (obj stream :type t)
+    (format stream "fitness=~A n-nodes=~A" (fitness obj) (n-nodes obj))))
+
+
 ;;; Specials
 
 (defparameter *fitness-function* (lambda (r) (* pi (* r r))))
@@ -32,9 +47,51 @@
   (append list (list object)))
 
 
-(defun create-initial-population (&optional (size 100))
+(defun calculate-fitness (tree fitness-function input &key (debug nil))
+  (loop with fs = nil
+        for i in input
+        for out = (handler-case (run-tree tree i)
+                    (error () (return-from calculate-fitness nil)))
+        for target = (funcall fitness-function i)
+        for f = (abs (- 1 (/ out target)))  ; XXX: possible divide-by-zero
+        do (push f fs)
+           (when debug
+             (format t "i=~S t=~S o=~S f=~S~%" i target out f))
+        finally (return (coerce (/ (reduce #'+ fs) (length fs)) 'float))))
+
+
+(defun calculate-n-nodes (tree)
+  "Returns the number of nodes in TREE, including the root node and leaves."
+  (let ((nodes 1))
+    (labels ((traverse-nodes (subtree)
+               (loop for node in subtree
+                     do (incf nodes)
+                        (when (listp node)
+                          (traverse-nodes node)))))
+      (traverse-nodes tree))
+    nodes))
+
+
+(defun copy-mote (mote)
+  (make-instance 'mote :fitness (fitness mote) :n-nodes (n-nodes mote)
+                 :tree (tree mote)))
+
+
+(defun create-initial-population (operators fitness-function input
+                                  &optional (size 100))
   (loop repeat size
-        collect (random-form *operators*)))
+        for rtree = (random-tree operators)
+        for fitness = (calculate-fitness rtree fitness-function input)
+        for n-nodes = (calculate-n-nodes rtree)
+        collect (create-mote operators fitness-function input)))
+
+
+(defun create-mote (operators fitness-function input)
+  (let ((rtree (random-tree operators)))
+    (make-instance 'mote
+                   :fitness (calculate-fitness rtree fitness-function input)
+                   :n-nodes (calculate-n-nodes rtree)
+                   :tree rtree)))
 
 
 (defun cross-over (tree1 tree2 &key (debug nil))
@@ -48,32 +105,17 @@
     (replace-node tree1 (getf rnode1 :index) (getf rnode2 :node))))
 
 
-(defun evaluate-population (population fitness-function input &key (debug nil))
-  "Returns POPULATION as a list consisting of (FITNESS FORM) and sorted by
-  fitness from best to worst.  Any form that returned a NIL (ie. caused an
-  error) is not included in the returned list."
-  (when debug
-    (format t "~8@A | ~24@A~%" "i" "fitness")
-    (format t "---------|--------------------------~%"))
+(defun evaluate-population (population fitness-function input)
+  "Recalculates the fitness of every mote in POPULATION and returns the
+  population sorted by fitness from best to worst.  Any mote that returned a
+  NIL for fitness (ie. caused an error) is not included in the returned list."
   (loop for i from 0 below (length population)
-        for form = (elt population i)
-        for fitness = (fitness form fitness-function input)
-        when debug do (format t "~8@S | ~24@S~%" i fitness)
-        unless (null fitness) collect (list fitness form) into result
-        finally (return (sort result #'< :key #'first))))
-
-
-(defun fitness (form fitness-function input &key (debug nil))
-  (loop with fs = nil
-        for i in input
-        for out = (handler-case (run-form form i)
-                    (error () (return-from fitness nil)))
-        for target = (funcall fitness-function i)
-        for f = (abs (- 1 (/ out target)))  ; XXX: possible divide-by-zero
-        do (push f fs)
-           (when debug
-             (format t "i=~S t=~S o=~S f=~S~%" i target out f))
-        finally (return (coerce (/ (reduce #'+ fs) (length fs)) 'float))))
+        for mote = (elt population i)
+        for fitness = (calculate-fitness (tree mote) fitness-function input)
+        unless (null fitness)
+          do (setf (fitness mote) fitness)
+          and collect mote into result
+        finally (return (sort result #'< :key #'fitness))))
 
 
 (defun head (sequence &optional (amount 1))
@@ -86,40 +128,28 @@
           (subseq sequence 0 amount))))
 
 
-(defun make-function (form)
-  "Turns FORM into a function object."
+(defun make-function (tree)
+  "Turns TREE into a function object."
   (let ((*error-output* (make-broadcast-stream)))  ; thanks stassats!
-    (eval (append1 '(lambda (=input=)) form))))
+    (eval (append1 '(lambda (=input=)) tree))))
 
 
 (defun mutate (tree operators &key (debug nil))
-  "Replaces a random node in TREE with a random form."
-  (let ((rform (random-form operators))
+  "Replaces a random node in TREE with a random tree."
+  (let ((rtree (random-tree operators))
         (rnode (random-node tree)))
     (when debug
-      (format t "tree: ~S~%rform: ~S~%rnode: ~S~%" tree rform rnode))
-    (replace-node tree (getf rnode :index) rform)))
+      (format t "tree: ~S~%rtree: ~S~%rnode: ~S~%" tree rtree rnode))
+    (replace-node tree (getf rnode :index) rtree)))
 
 
-(defun n-nodes (tree)
-  "Returns the number of nodes in TREE, including the root node and leaves."
-  (let ((nodes 1))
-    (labels ((traverse-nodes (subtree)
-               (loop for node in subtree
-                     do (incf nodes)
-                        (when (listp node)
-                          (traverse-nodes node)))))
-      (traverse-nodes tree))
-    nodes))
-
-
-(defun print-results (form fitness-function input)
+(defun print-results (tree fitness-function input)
   (format t "~8@A | ~24@A | ~24@A~%" "in" "out" "wanted")
   (format t "---------|--------------------------~
                       |--------------------------~%")
   (loop for i from 0 below (length input)
         for in = (elt input i)
-        for out = (run-form form in)
+        for out = (run-tree tree in)
         for target = (funcall fitness-function in)
         do (format t "~8@S | ~24@S | ~24@S~%" in out target)))
 
@@ -131,15 +161,15 @@
       (elt sequence (random length)))))
 
 
-(defun random-form (operators &key (max-depth 4))
-  "Generates a random form using OPERATORS.  MAX-DEPTH must either be an
+(defun random-tree (operators &key (max-depth 4))
+  "Generates a random tree using OPERATORS.  MAX-DEPTH must either be an
   integer equal to or greater than 0 or :UNLIMITED.  The latter is not
   recommended."
   (append (list (random-elt operators))
           (loop repeat 2
                 collect (if (or (> max-depth 0) (equal max-depth :unlimited))
                             (if (= 0 (random 2))
-                                (random-form operators
+                                (random-tree operators
                                              :max-depth (- max-depth 1))
                                 (if (= 0 (random 2))
                                     (random 10.0)
@@ -152,7 +182,7 @@
 (defun random-node (tree)
   "Returns a random node from TREE."
   (let* ((index 1)
-         (nodes-1 (- (n-nodes tree) 1))
+         (nodes-1 (- (calculate-n-nodes tree) 1))
          (random-node (+ (random nodes-1) 1)))
     (labels ((traverse-nodes (subtree)
                (loop for node in subtree
@@ -182,45 +212,50 @@
       (traverse-nodes tree))))
 
 
-(defun revitalize-population (evaluated-population &key (members 100))
-  "EVALUATED-POPULATION is the output of EVALUATE-POPULATION."
+(defun revitalize-population (population operators fitness-function input
+                              &key (members 100))
+  "POPULATION is assumed to be sorted from best to worst (ie. the output of
+  EVALUATE-POPULATION)."
   (declare (ignore members))
-  (let ((culled-population (head evaluated-population 90)))  ; kill bottom 10%
+  (let ((culled-population (head population 80)))  ; kill bottom 20%
     ;; duplicate the top 10%
     (loop for i from 0 below 10
-          collect (elt culled-population i) into dups
+          collect (copy-mote (elt culled-population i)) into dups
           finally (setf culled-population (append culled-population dups)))
     ;; add new members
     (when (< (length culled-population) 100)
       (loop repeat (- 100 (length culled-population))
             do (setf culled-population
                      (append1 culled-population
-                              (list 0 (random-form *operators*))))))
-    (loop for digitanism in culled-population
-          for form = (second digitanism)
+                             (create-mote operators fitness-function input)))))
+    (loop for mote in culled-population
           for i from 69 downto 0 by 0.5
-          ;collect (second digitanism))))
-          collect (if (> (random 100) i)
-                      form
-                      (if (= 0 (random 2))
-                          (cross-over form
-                                      (elt culled-population
-                                          (random (length culled-population))))
-                          (mutate form *operators*))))))
+          do (when (< (random 100) i)
+               (if (= 0 (random 2))
+                   (setf (tree mote)
+                         (cross-over (tree mote)
+                                     (tree (elt culled-population
+                                        (random (length culled-population))))))
+                   (setf (tree mote) (mutate (tree mote) operators)))))
+    culled-population))
 
 
-(defun run-form (form input)
-  "Turns FORM into a function and calls it with INPUT."
-  (funcall (make-function form) input))
+(defun run-tree (tree input)
+  "Turns TREE into a function and calls it with INPUT."
+  (funcall (make-function tree) input))
 
 
-(defun run-generations (population fitness-function input
+(defun run-generations (population operators fitness-function input
                         &optional (generations 10))
   (loop repeat generations
         for i from 0
         for ep = (evaluate-population population fitness-function input)
-        do (format t "--- ~S ---~%1: ~S~%2: ~S~%3: ~S~%members: ~S~%"
-                   i (first (first ep)) (first (second ep)) (first (third ep))
-                   (length ep))
-           (setf population (revitalize-population ep)))
+        do (when (<= (fitness (elt ep 0)) 0)
+             (format t "!!! Solution Found !!!~%")
+             (return-from run-generations ep))
+           (format t "[~S] 1=~S 2=~S 3=~S (members: ~S)~%" i
+                   (fitness (elt ep 0)) (fitness (elt ep 1))
+                   (fitness (elt ep 2)) (length ep))
+           (setf population (revitalize-population ep operators
+                                                   fitness-function input)))
   population)
