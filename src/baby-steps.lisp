@@ -60,28 +60,20 @@
         for fitness = (fitness form fitness-function input)
         when debug do (format t "~8@S | ~24@S~%" i fitness)
         unless (null fitness) collect (list fitness form) into result
-        finally (return (sort result #'> :key #'first))))
+        finally (return (sort result #'< :key #'first))))
 
 
 (defun fitness (form fitness-function input &key (debug nil))
   (loop with fs = nil
-        with max-f = 0
         for i in input
         for out = (handler-case (run-form form i)
                     (error () (return-from fitness nil)))
         for target = (funcall fitness-function i)
-        for f = (abs (- target out))
-        do (when (> f max-f)
-             (setf max-f f))
-           (push f fs)
+        for f = (abs (- 1 (/ out target)))  ; XXX: possible divide-by-zero
+        do (push f fs)
            (when debug
              (format t "i=~S t=~S o=~S f=~S~%" i target out f))
-        finally (return (if (= 0 max-f)
-                            0
-                            (loop with result = 1.0
-                                  for f in fs
-                                  do (setf result (* result (/ f max-f)))
-                                  finally (return result))))))
+        finally (return (coerce (/ (reduce #'+ fs) (length fs)) 'float))))
 
 
 (defun head (sequence &optional (amount 1))
@@ -232,5 +224,3 @@
                    (length ep))
            (setf population (revitalize-population ep)))
   population)
-
-
