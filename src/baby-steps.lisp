@@ -33,9 +33,11 @@
 
 ;;; Specials
 
+(defparameter *best-mote* nil)
+
 (defparameter *fitness-function* (lambda (r) (* pi (* r r))))
 
-(defparameter *input* '(1 23 456))
+(defparameter *input* '(-1 1 23 456))
 
 (defparameter *operators* '(+ - * /))
 
@@ -112,8 +114,12 @@
   (loop for i from 0 below (length population)
         for mote = (elt population i)
         for fitness = (calculate-fitness (tree mote) fitness-function input)
-        unless (null fitness)
+        when fitness
           do (setf (fitness mote) fitness)
+             (unless *best-mote*
+               (setf *best-mote* (copy-mote mote)))
+             (when (< fitness (fitness *best-mote*))
+               (setf *best-mote* (copy-mote mote)))
           and collect mote into result
         finally (return (sort result #'< :key #'fitness))))
 
