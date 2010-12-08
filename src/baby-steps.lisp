@@ -1,8 +1,9 @@
 ;;;; baby-steps.lisp
 ;;;;
 ;;;; Usage:
-;;;; 1> (defparameter population (create-initial-population 1))
-;;;; 2> (evaluate-population population *fitness-function* *input*)
+;;;; 1> (defparameter popl (create-initial-population 1))
+;;;; 2> (setf popl (run-generations population *operators* *fitness-function*
+;;;;                                *input*))
 ;;;;
 ;;;; Notes to self:
 ;;;; * #'sb-introspect:function-lambda-list
