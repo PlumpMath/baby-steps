@@ -19,12 +19,27 @@
 
 ;;; Classes
 
-;; FITNESS and N-NODES can be deduced but I use them in PRINT-OBJECT and don't
-;; want to recalculate them every time I print objects to the REPL.
-(defclass mote ()
-  ((fitness :accessor fitness :initarg :fitness)
-   (n-nodes :accessor n-nodes :initarg :n-nodes)
+;; N-NODES can be deduced but I use it in PRINT-OBJECT and don't want to
+;; recalculate every time I print objects to the REPL.
+(defclass subtree ()
+  ((n-nodes :accessor n-nodes :initarg :n-nodes)
    (tree :accessor tree :initarg :tree)))
+
+
+;; FITNESS can be deduced but I use it in PRINT-OBJECT and don't want to
+;; recalculate every time I print objects to the REPL.
+(defclass mote (subtree)
+  ((fitness :accessor fitness :initarg :fitness)))
+
+
+(defclass population ()
+  ((best-motes :accessor best-motes :initform (make-array 0 :fill-pointer 0))
+   (best-size :accessor best-size :initarg :best-size :initform 10)
+   (fitness-function :accessor fitness-function :initarg :fitness-function)
+   (motes :accessor motes :initarg :motes)
+   (operators :accessor operators :initarg :operators)
+   (size :accessor size :initarg :size :initform 100)
+   (test-input :accessor test-input :initarg :test-input :initform '(-1 0 1))))
 
 
 (defmethod print-object ((obj mote) stream)
@@ -32,9 +47,12 @@
     (format stream "fitness=~A n-nodes=~A" (fitness obj) (n-nodes obj))))
 
 
-;;; Specials
+(defmethod print-object ((obj population) stream)
+  (print-unreadable-object (obj stream :type t)
+    (format stream "size=~A" (size obj))))
 
-(defparameter *best-mote* nil)
+
+;;; Specials
 
 (defparameter *fitness-function* (lambda (r) (* pi (* r r))))
 
@@ -43,11 +61,32 @@
 (defparameter *operators* '(+ - * /))
 
 
-;;; Function
+;;; Functions & Methods
+
+(defmethod add-best-mote ((p population) (m mote))
+  "Adds MOTE to (BEST-MOTES POPULATION) if it isn't already in there."
+  (when (find m (best-motes p))
+    (return-from add-best-mote (best-motes p)))
+  (if (< (length (best-motes p)) (best-size p))
+      (vector-push-extend m (best-motes p))
+      (setf (elt (best-motes p) (- (best-size p) 1)) m))
+  (sort-best-motes p))
+
 
 (defun append1 (list object)
   "Shorthand for: (APPEND LIST (LIST OBJECT))."
   (append list (list object)))
+
+
+;; XXX: doesn't work quite right yet, the last mote isn't correct
+(defmethod best-mote-p ((p population) (m mote))
+  (if (< (length (best-motes p)) (best-size p))
+      t
+      (let ((last-best (elt (best-motes p) (- (best-size p) 1))))
+        (if (> (fitness m) (fitness last-best))
+            t
+            ;; fitness is equal, select on size or newness:
+            (<= (n-nodes m) (n-nodes last-best))))))
 
 
 (defun calculate-fitness (tree fitness-function input &key (debug nil))
@@ -56,11 +95,12 @@
         for out = (handler-case (run-tree tree i)
                     (error () (return-from calculate-fitness nil)))
         for target = (funcall fitness-function i)
-        for f = (abs (- 1 (/ out target)))  ; XXX: possible divide-by-zero
+        for dto = (abs (- target out))
+        for f = (/ 1.0 (+ 1 dto))
         do (push f fs)
            (when debug
              (format t "i=~S t=~S o=~S f=~S~%" i target out f))
-        finally (return (coerce (/ (reduce #'+ fs) (length fs)) 'float))))
+        finally (return (reduce #'* fs))))
 
 
 (defun calculate-n-nodes (tree)
@@ -76,25 +116,39 @@
 
 
 (defun copy-mote (mote)
+  "Returns a new MOTE instance with the same slot values as MOTE."
   (make-instance 'mote :fitness (fitness mote) :n-nodes (n-nodes mote)
-                 :tree (tree mote)))
+                 :tree (tree mote)))  ; XXX: (copy-seq (tree mote))?
 
 
-(defun create-initial-population (operators fitness-function input
+(defun create-initial-population (operators fitness-function test-input
                                   &optional (size 100))
-  (loop repeat size
+  (let ((population (make-instance 'population
+                                   :fitness-function fitness-function
+                                   :motes (make-array 0 :fill-pointer 0)
+                                   :operators operators
+                                   :size size
+                                   :test-input test-input)))
+    (loop with n-motes = 0
+          until (>= n-motes size)
+          for mote = (create-mote operators fitness-function test-input)
+          when (fitness mote)
+          do (vector-push-extend mote (motes population))
+             (incf n-motes))
+    (sort-motes population)
+    population))
+
+
+(defun create-mote (operators fitness-function input &key (debug nil))
+  "Creates a new MOTE instance with a fitness guaranteed not be NIL."
+  (loop for i from 1
         for rtree = (random-tree operators)
-        for fitness = (calculate-fitness rtree fitness-function input)
-        for n-nodes = (calculate-n-nodes rtree)
-        collect (create-mote operators fitness-function input)))
-
-
-(defun create-mote (operators fitness-function input)
-  (let ((rtree (random-tree operators)))
-    (make-instance 'mote
-                   :fitness (calculate-fitness rtree fitness-function input)
-                   :n-nodes (calculate-n-nodes rtree)
-                   :tree rtree)))
+        for fitness =  (calculate-fitness rtree fitness-function input)
+        until fitness
+        finally (when debug
+                  (format t "[create-mote] took ~A tries.~%" i))
+                (return (make-instance 'mote :fitness fitness :tree rtree
+                                       :n-nodes (calculate-n-nodes rtree)))))
 
 
 (defun cross-over (tree1 tree2 &key (debug nil))
@@ -108,21 +162,24 @@
     (replace-node tree1 (getf rnode1 :index) (getf rnode2 :node))))
 
 
-(defun evaluate-population (population fitness-function input)
-  "Recalculates the fitness of every mote in POPULATION and returns the
-  population sorted by fitness from best to worst.  Any mote that returned a
-  NIL for fitness (ie. caused an error) is not included in the returned list."
-  (loop for i from 0 below (length population)
-        for mote = (elt population i)
-        for fitness = (calculate-fitness (tree mote) fitness-function input)
+(defmethod evaluate-population ((obj population))
+  "Recalculates the fitness of every mote in POPULATION and sorts the motes
+  using #'SORT-MOTES.  Any mote that returned a NIL for fitness (ie. caused an
+  error) is replaced by a newly created mote."
+  (loop for i from 0 below (size obj)
+        for mote = (elt (motes obj) i)
+        for fitness = (calculate-fitness (tree mote) (fitness-function obj)
+                                         (test-input obj))
         when fitness
           do (setf (fitness mote) fitness)
-             (unless *best-mote*
-               (setf *best-mote* (copy-mote mote)))
-             (when (< fitness (fitness *best-mote*))
-               (setf *best-mote* (copy-mote mote)))
-          and collect mote into result
-        finally (return (sort result #'< :key #'fitness))))
+             ;; XXX: doesn't work quite right yet, the last mote isn't correct
+             (when (best-mote-p obj mote)
+               (add-best-mote obj mote))
+        unless fitness
+          do (setf (elt (motes obj) i)
+                   (create-mote (operators obj) (fitness-function obj)
+                                (test-input obj)))
+        finally (return (sort-motes obj))))
 
 
 (defun head (sequence &optional (amount 1))
@@ -256,7 +313,7 @@
                         &optional (generations 10))
   (loop repeat generations
         for i from 0
-        for ep = (evaluate-population population fitness-function input)
+        for ep = (evaluate-population population)
         do (when (<= (fitness (elt ep 0)) 0)
              (format t "!!! Solution Found !!!~%")
              (return-from run-generations ep))
@@ -266,3 +323,15 @@
            (setf population (revitalize-population ep operators
                                                    fitness-function input)))
   population)
+
+
+(defmethod sort-best-motes ((obj population))
+  "Sorts (BEST-MOTES OBJ) from best fitness to worst fitness."
+  (setf (best-motes obj)
+        (sort (best-motes obj) (lambda (a b) (> (fitness a) (fitness b))))))
+
+
+(defmethod sort-motes ((obj population))
+  "Sorts (MOTES OBJ) from best fitness to worst fitness."
+  (setf (motes obj)
+        (sort (motes obj) (lambda (a b) (> (fitness a) (fitness b))))))
