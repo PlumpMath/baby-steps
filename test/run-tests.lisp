@@ -14,11 +14,23 @@
 (use-package :lisp-unit)
 
 
+;;; Parameters
+
+(defparameter ffn1 (lambda (x) (+ x 1)))
+(defparameter ffn1-input '(-1 0 2))
+
+
 ;;; Tests
 
 (define-test append1 ()
   (assert-equal '(1 2 3) (append1 '(1 2) 3))
   (assert-equal '(1 2 (3 4)) (append1 '(1 2) '(3 4))))
+
+(define-test calculate-fitness ()
+  (assert-equal 0.001 (calculate-fitness '(- =input=  8) ffn1 ffn1-input))
+  (assert-equal 1.0   (calculate-fitness '(- =input= -1) ffn1 ffn1-input))
+  (assert-equal 1.0   (calculate-fitness '(+ =input=  1) ffn1 ffn1-input))
+  (assert-equal 0.125 (calculate-fitness '(+ =input=  2) ffn1 ffn1-input)))
 
 (define-test head ()
   (assert-equal nil (head '()))
