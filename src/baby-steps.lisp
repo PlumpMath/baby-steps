@@ -276,32 +276,35 @@
       (traverse-nodes tree))))
 
 
-(defun revitalize-population (population operators fitness-function input
-                              &key (members 100))
-  "POPULATION is assumed to be sorted from best to worst (ie. the output of
-  EVALUATE-POPULATION)."
-  (declare (ignore members))
-  (let ((culled-population (head population 80)))  ; kill bottom 20%
-    ;; duplicate the top 10%
-    (loop for i from 0 below 10
-          collect (copy-mote (elt culled-population i)) into dups
-          finally (setf culled-population (append culled-population dups)))
-    ;; add new members
-    (when (< (length culled-population) 100)
-      (loop repeat (- 100 (length culled-population))
-            do (setf culled-population
-                     (append1 culled-population
-                             (create-mote operators fitness-function input)))))
-    (loop for mote in culled-population
-          for i from 69 downto 0 by 0.5
-          do (when (< (random 100) i)
-               (if (= 0 (random 2))
-                   (setf (tree mote)
-                         (cross-over (tree mote)
-                                     (tree (elt culled-population
-                                        (random (length culled-population))))))
-                   (setf (tree mote) (mutate (tree mote) operators)))))
-    culled-population))
+(defmethod revitalize-population ((p population))
+  ;; kill bottom 20%
+  (setf (fill-pointer (motes p)) (floor (* 0.8 (length (motes p)))))
+  ;; cross-overs and mutations
+  (loop for mote across (motes p)
+        for rnr = (random 100)
+        for cross-over = (when (<= rnr 90)
+                           (cross-over (tree mote)
+                                       (tree (elt (motes p)
+                                                (random (length (motes p)))))))
+        for mutate = (unless cross-over
+                       (mutate (tree mote) (operators p)))
+        for tree = (if cross-over cross-over mutate)
+        for fitness = (calculate-fitness tree (fitness-function p)
+                                         (test-input p))
+        when fitness
+        do (vector-push-extend (make-instance 'mote :fitness fitness :tree tree
+                                             :n-nodes (calculate-n-nodes tree))
+                               (motes p)))
+  ;; add new members
+  (when (< (length (motes p)) (size p))
+    (loop repeat (- (size p) (length (motes p)))
+          do (vector-push-extend (create-mote (operators p)
+                                        (fitness-function p) (test-input p))
+                                 (motes p))))
+  (evaluate-population p)
+  (when (> (fill-pointer (motes p)) (size p))
+    (setf (fill-pointer (motes p)) (size p)))
+  (motes p))
 
 
 (defun run-tree (tree input)
@@ -309,19 +312,19 @@
   (funcall (make-function tree) input))
 
 
-(defun run-generations (population operators fitness-function input
-                        &optional (generations 10))
+(defun run-generations (population &optional (generations 10))
   (loop repeat generations
         for i from 0
-        for ep = (evaluate-population population)
-        do (when (<= (fitness (elt ep 0)) 0)
-             (format t "!!! Solution Found !!!~%")
-             (return-from run-generations ep))
-           (format t "[~S] 1=~S 2=~S 3=~S (members: ~S)~%" i
-                   (fitness (elt ep 0)) (fitness (elt ep 1))
-                   (fitness (elt ep 2)) (length ep))
-           (setf population (revitalize-population ep operators
-                                                   fitness-function input)))
+        for lm = (length (motes population))
+        do (revitalize-population p)
+           ;(when (<= (fitness (elt ep 0)) 0)
+           ;  (format t "!!! Solution Found !!!~%")
+           ;  (return-from run-generations ep))
+           (format t "[~S] ~15,10E ~15,10E ~15,10E ~15,10E~%" i
+                   (fitness (elt (motes population) 0))
+                   (fitness (elt (motes population) (floor (* 0.1 lm))))
+                   (fitness (elt (motes population) (floor (* 0.5 lm))))
+                   (fitness (elt (motes population) (- lm 1)))))
   population)
 
 
