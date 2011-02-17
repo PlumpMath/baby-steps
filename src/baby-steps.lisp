@@ -316,7 +316,7 @@
   (loop repeat generations
         for i from 0
         for lm = (length (motes population))
-        do (revitalize-population p)
+        do (revitalize-population population)
            ;(when (<= (fitness (elt ep 0)) 0)
            ;  (format t "!!! Solution Found !!!~%")
            ;  (return-from run-generations ep))
