@@ -38,7 +38,7 @@
   (loop repeat generations
         for i from 0
         for lm = (length (motes population))
-        do (advance-generation population)
+        do (advance-generation population :method :tournament)
            (format t "[~S] ~15,10E ~15,10E ~15,10E ~15,10E~%" i
                    (fitness (elt (motes population) 0))
                    (fitness (elt (motes population) (floor (* 0.1 lm))))
@@ -63,5 +63,5 @@
     (format t "---~%total nodes: ~S~%"
             (loop for mote across (motes p) sum (n-nodes mote)))
     (format t (mkstr "---~%Done.  Call \"(example-run *)\" to continue with "
-                     " the same population.~%"))
+                     "the same population.~%"))
     p))

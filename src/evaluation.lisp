@@ -22,24 +22,35 @@
           for i from 0
           do (vector-push-extend mote (motes p))
              (when (<= (random 1.0d0) (normalised-fitness mote))
-               (if (<= (random 100) 90)
-                   (let* ((tree (crossover (tree mote)
-                                           (tree (random-elt motes-copy))))
-                          (fitness (calculate-fitness tree ffn ti)))
-                     (when fitness
-                       (vector-push-extend
-                        (make-instance 'mote :tree tree :fitness fitness
-                                       :fn (make-function tree)
-                                       :n-nodes (calculate-n-nodes tree))
-                        (motes p))))
-                   (let* ((tree (mutate (tree mote) (operators p)))
-                          (fitness (calculate-fitness tree ffn ti)))
-                     (when fitness
-                       (vector-push-extend
-                        (make-instance 'mote :tree tree :fitness fitness
-                                       :fn (make-function tree)
-                                       :n-nodes (calculate-n-nodes tree))
-                        (motes p)))))))
+               (let ((rnr (random 100)))
+                 (cond ((<= rnr 80)
+                        (let* ((tree (crossover (tree mote)
+                                               (tree (random-elt motes-copy))))
+                               (fitness (calculate-fitness tree ffn ti)))
+                          (when fitness
+                            (vector-push-extend
+                             (make-instance 'mote :tree tree :fitness fitness
+                                            :fn (make-function tree)
+                                            :n-nodes (calculate-n-nodes tree))
+                             (motes p)))))
+                       ((<= rnr 90)
+                        (let* ((tree (mutate (tree mote) (operators p)))
+                               (fitness (calculate-fitness tree ffn ti)))
+                          (when fitness
+                            (vector-push-extend
+                             (make-instance 'mote :tree tree :fitness fitness
+                                            :fn (make-function tree)
+                                            :n-nodes (calculate-n-nodes tree))
+                             (motes p)))))
+                       (t
+                        (let* ((tree (bloat-to-float (tree mote)))
+                               (fitness (calculate-fitness tree ffn ti)))
+                          (when fitness
+                            (vector-push-extend
+                             (make-instance 'mote :tree tree :fitness fitness
+                                            :fn (make-function tree)
+                                            :n-nodes (calculate-n-nodes tree))
+                             (motes p)))))))))
     (cond ((> (length (motes p)) (size p))
            (sort-motes p)
            (setf (fill-pointer (motes p)) (size p)))
@@ -72,31 +83,34 @@
           for p1 = (elt participants i)
           for p2 = (elt participants (+ i 1))
           do (incf i 2)
-             (if (<= (random 100) 90)
-                 (let* ((tree (crossover (tree p1) (tree p2)))
-                        (fitness (calculate-fitness tree ffn ti)))
-                   (when fitness
-                     (vector-push-extend
-                      (make-instance 'mote :tree tree :fitness fitness
-                                     :fn (make-function tree)
-                                     :n-nodes (calculate-n-nodes tree))
-                      (motes p))))
-                 (let* ((tree1 (mutate (tree p1) (operators p)))
-                        (fitness1 (calculate-fitness tree1 ffn ti))
-                        (tree2 (mutate (tree p2) (operators p)))
-                        (fitness2 (calculate-fitness tree2 ffn ti)))
-                     (when fitness1
-                       (vector-push-extend
-                        (make-instance 'mote :tree tree1 :fitness fitness1
-                                       :fn (make-function tree1)
-                                       :n-nodes (calculate-n-nodes tree1))
-                        (motes p)))
-                     (when fitness2
-                       (vector-push-extend
-                        (make-instance 'mote :tree tree2 :fitness fitness2
-                                       :fn (make-function tree2)
-                                       :n-nodes (calculate-n-nodes tree2))
-                        (motes p))))))
+             (let ((rnr (random 100)))
+               (cond ((<= rnr 80)
+                      (let* ((tree (crossover (tree p1) (tree p2)))
+                             (fitness (calculate-fitness tree ffn ti)))
+                        (when fitness
+                          (vector-push-extend
+                           (make-instance 'mote :tree tree :fitness fitness
+                                          :fn (make-function tree)
+                                          :n-nodes (calculate-n-nodes tree))
+                           (motes p)))))
+                     ((<= rnr 90)
+                      (let* ((tree (mutate (tree p1) (operators p)))
+                             (fitness (calculate-fitness tree ffn ti)))
+                        (when fitness
+                          (vector-push-extend
+                           (make-instance 'mote :tree tree :fitness fitness
+                                          :fn (make-function tree)
+                                          :n-nodes (calculate-n-nodes tree))
+                           (motes p)))))
+                     (t
+                      (let* ((tree (bloat-to-float (tree p1)))
+                             (fitness (calculate-fitness tree ffn ti)))
+                        (when fitness
+                          (vector-push-extend
+                           (make-instance 'mote :tree tree :fitness fitness
+                                          :fn (make-function tree)
+                                          :n-nodes (calculate-n-nodes tree))
+                           (motes p))))))))
     (cond ((> (length (motes p)) (size p))
            (sort-motes p)
            (setf (fill-pointer (motes p)) (size p)))
@@ -108,9 +122,7 @@
            (sort-motes p)))))
 
 
-;(defmethod advance-generation ((p population) &key (method :tournament))
-(defmethod advance-generation ((p population)
-                               &key (method :fitness-proportionate))
+(defmethod advance-generation ((p population) &key (method :tournament))
   (case method
     (:fitness-proportionate (advance-generation-fitness-proportionate p))
     (:tournament (advance-generation-tournament p))
