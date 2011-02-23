@@ -9,8 +9,8 @@
 
 ;;; Functions & Methods
 
-;; TODO: method :fitness-proportionate (perhaps not quite correct)
-(defmethod advance-generation ((p population))
+;; Not quite fitness-proportionate I think, need to check.
+(defmethod advance-generation-fitness-proportionate ((p population))
   (let ((ffn (fitness-fn p))
         (ti (test-input p))
         (motes-copy (head (sort (motes p) (lambda (a b)
@@ -48,6 +48,70 @@
                                                  (fitness-fn p) (test-input p))
                                         (motes p)))
            (sort-motes p)))))
+
+
+(defmethod advance-generation-tournament ((p population))
+  (let ((ffn (fitness-fn p))
+        (ti (test-input p))
+        (participants
+         (loop with candidate-indexes = nil
+               with candidate-nr = 0
+               with n-candidates = 20
+               until (>= candidate-nr n-candidates)
+               for rnr = (random (size p))
+               do (unless (member rnr candidate-indexes)
+                    (push rnr candidate-indexes)
+                    (incf candidate-nr))
+               finally (return (sort (loop for index in candidate-indexes
+                                           collect (nth-mote p index))
+                                     (lambda (a b)
+                                       (> (fitness a) (fitness b))))))))
+    (loop with i = 0
+          until (>= i (length participants))
+          for p1 = (elt participants i)
+          for p2 = (elt participants (+ i 1))
+          do (incf i 2)
+             (if (<= (random 100) 90)
+                 (let* ((tree (crossover (tree p1) (tree p2)))
+                        (fitness (calculate-fitness tree ffn ti)))
+                   (when fitness
+                     (vector-push-extend
+                      (make-instance 'mote :tree tree :fitness fitness
+                                     :fn (make-function tree)
+                                     :n-nodes (calculate-n-nodes tree))
+                      (motes p))))
+                 (let* ((tree1 (mutate (tree p1) (operators p)))
+                        (fitness1 (calculate-fitness tree1 ffn ti))
+                        (tree2 (mutate (tree p2) (operators p)))
+                        (fitness2 (calculate-fitness tree2 ffn ti)))
+                     (when fitness1
+                       (vector-push-extend
+                        (make-instance 'mote :tree tree1 :fitness fitness1
+                                       :fn (make-function tree1)
+                                       :n-nodes (calculate-n-nodes tree1))
+                        (motes p)))
+                     (when fitness2
+                       (vector-push-extend
+                        (make-instance 'mote :tree tree2 :fitness fitness2
+                                       :fn (make-function tree2)
+                                       :n-nodes (calculate-n-nodes tree2))
+                        (motes p))))))
+    (cond ((> (length (motes p)) (size p))
+           (sort-motes p)
+           (setf (fill-pointer (motes p)) (size p)))
+          ((< (length (motes p)) (size p))
+           (loop repeat (- (size p) (length (motes p)))
+                 do (vector-push-extend (create-mote (operators p)
+                                                 (fitness-fn p) (test-input p))
+                                        (motes p)))
+           (sort-motes p)))))
+
+
+(defmethod advance-generation ((p population) &key (method :tournament))
+  (case method
+    (:fitness-proportionate (advance-generation-fitness-proportionate p))
+    (:tournament (advance-generation-tournament p))
+    (otherwise (error "Unknown ADVANCE-GENERATION method."))))
 
 
 (defun calculate-fitness (tree fitness-fn test-input &key (debug nil))
