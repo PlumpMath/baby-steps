@@ -9,7 +9,7 @@
 
 ;;; Functions
 
-(defun cross-over (tree1 tree2 &key (debug nil))
+(defun crossover (tree1 tree2 &key (debug nil))
   "Returns a new tree similar to TREE1 but with a random node replaced by a
   random node from TREE2."
   (let ((rnode1 (random-node tree1))

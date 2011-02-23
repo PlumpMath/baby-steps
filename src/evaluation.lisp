@@ -9,7 +9,7 @@
 
 ;;; Functions & Methods
 
-;; TODO: method :fitness-and-random
+;; TODO: method :fitness-proportionate (perhaps not quite correct)
 (defmethod advance-generation ((p population))
   (let ((ffn (fitness-fn p))
         (ti (test-input p))
@@ -22,8 +22,8 @@
           do (vector-push-extend mote (motes p))
              (when (<= (random 1.0d0) (fitness mote))
                (if (<= (random 100) 90)
-                   (let* ((tree (cross-over (tree mote)
-                                            (tree (random-elt motes-copy))))
+                   (let* ((tree (crossover (tree mote)
+                                           (tree (random-elt motes-copy))))
                           (fitness (calculate-fitness tree ffn ti)))
                      (when fitness
                        (vector-push-extend

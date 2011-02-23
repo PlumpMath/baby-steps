@@ -1,9 +1,8 @@
 ;;;; pirr.lisp
 ;;;;
-;;;; Usage:
-;;;; 1> (defparameter popl (create-initial-population *operators*
-;;;;                         *fitness-function* *input*))
-;;;; 2> (setf popl (run-generations population))
+;;;; author: Erik Winkels (aerique@xs4all.nl)
+;;;;
+;;;; See the LICENSE file in the Baby Steps root directory for more info.
 
 ;;; Packages
 
@@ -61,6 +60,8 @@
     (format t "--- best mote ---~%~S~%---~%" (tree (nth-mote p 0)))
     (calculate-fitness (tree (nth-mote p 0)) *fitness-function* *test-input*
                        :debug t)
+    (format t "---~%total nodes: ~S~%"
+            (loop for mote across (motes p) sum (n-nodes mote)))
     (format t (mkstr "---~%Done.  Call \"(example-run *)\" to continue with "
                      " the same population.~%"))
     p))
