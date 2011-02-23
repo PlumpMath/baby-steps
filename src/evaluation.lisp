@@ -9,33 +9,53 @@
 
 ;;; Functions & Methods
 
-(defmethod add-best-mote ((p population) (m mote))
-  "Adds MOTE to (BEST-MOTES POPULATION) if it isn't already in there."
-  (when (find m (best-motes p))
-    (return-from add-best-mote (best-motes p)))
-  (if (< (length (best-motes p)) (best-size p))
-      (vector-push-extend m (best-motes p))
-      (setf (elt (best-motes p) (- (best-size p) 1)) m))
-  (sort-best-motes p))
+;; TODO: method :fitness-and-random
+(defmethod advance-generation ((p population))
+  (let ((ffn (fitness-fn p))
+        (ti (test-input p))
+        (motes-copy (head (sort (motes p) (lambda (a b)
+                                            (> (fitness a) (fitness b))))
+                          (size p))))
+    (setf (fill-pointer (motes p)) 0)
+    (loop for mote across motes-copy
+          for i from 0
+          do (vector-push-extend mote (motes p))
+             (when (<= (random 1.0d0) (fitness mote))
+               (if (<= (random 100) 90)
+                   (let* ((tree (cross-over (tree mote)
+                                            (tree (random-elt motes-copy))))
+                          (fitness (calculate-fitness tree ffn ti)))
+                     (when fitness
+                       (vector-push-extend
+                        (make-instance 'mote :tree tree :fitness fitness
+                                       :fn (make-function tree)
+                                       :n-nodes (calculate-n-nodes tree))
+                        (motes p))))
+                   (let* ((tree (mutate (tree mote) (operators p)))
+                          (fitness (calculate-fitness tree ffn ti)))
+                     (when fitness
+                       (vector-push-extend
+                        (make-instance 'mote :tree tree :fitness fitness
+                                       :fn (make-function tree)
+                                       :n-nodes (calculate-n-nodes tree))
+                        (motes p)))))))
+    (cond ((> (length (motes p)) (size p))
+           (sort-motes p)
+           (setf (fill-pointer (motes p)) (size p)))
+          ((< (length (motes p)) (size p))
+           (loop repeat (- (size p) (length (motes p)))
+                 do (vector-push-extend (create-mote (operators p)
+                                                 (fitness-fn p) (test-input p))
+                                        (motes p)))
+           (sort-motes p)))))
 
 
-;; XXX: doesn't work quite right yet, the last mote isn't correct
-(defmethod best-mote-p ((p population) (m mote))
-  (if (< (length (best-motes p)) (best-size p))
-      t
-      (let ((last-best (elt (best-motes p) (- (best-size p) 1))))
-        (if (> (fitness m) (fitness last-best))
-            t
-            ;; fitness is equal, select on size or newness:
-            (<= (n-nodes m) (n-nodes last-best))))))
-
-
-(defun calculate-fitness (tree fitness-function input &key (debug nil))
+(defun calculate-fitness (tree fitness-fn test-input &key (debug nil))
   (loop with fs = nil
-        for i in input
+        for i in test-input
         for out = (handler-case (run-tree tree i)
                     (error () (return-from calculate-fitness nil)))
-        for target = (funcall fitness-function i)
+        for target = (funcall fitness-fn i)
         for dto = (abs (- target out))
         for f = (/ 1.0 (+ 1 dto))
         do (push f fs)
@@ -54,63 +74,6 @@
                           (traverse-nodes node)))))
       (traverse-nodes tree))
     nodes))
-
-
-(defmethod evaluate-population ((obj population))
-  "Recalculates the fitness of every mote in POPULATION and sorts the motes
-  using #'SORT-MOTES.  Any mote that returned a NIL for fitness (ie. caused an
-  error) is replaced by a newly created mote."
-  (loop for i from 0 below (size obj)
-        for mote = (elt (motes obj) i)
-        for fitness = (calculate-fitness (tree mote) (fitness-function obj)
-                                         (test-input obj))
-        when fitness
-          do (setf (fitness mote) fitness)
-             ;; XXX: doesn't work quite right yet, the last mote isn't correct
-             (when (best-mote-p obj mote)
-               (add-best-mote obj mote))
-        unless fitness
-          do (setf (elt (motes obj) i)
-                   (create-mote (operators obj) (fitness-function obj)
-                                (test-input obj)))
-        finally (return (sort-motes obj))))
-
-
-(defmethod revitalize-population ((p population))
-  ;; kill bottom 20%
-  (setf (fill-pointer (motes p)) (floor (* 0.8 (length (motes p)))))
-  ;; cross-overs and mutations
-  (loop for mote across (motes p)
-        for rnr = (random 100)
-        for cross-over = (when (<= rnr 90)
-                           (cross-over (tree mote)
-                                       (tree (elt (motes p)
-                                                (random (length (motes p)))))))
-        for mutate = (unless cross-over
-                       (mutate (tree mote) (operators p)))
-        for tree = (if cross-over cross-over mutate)
-        for fitness = (calculate-fitness tree (fitness-function p)
-                                         (test-input p))
-        when fitness
-        do (vector-push-extend (make-instance 'mote :fitness fitness :tree tree
-                                             :n-nodes (calculate-n-nodes tree))
-                               (motes p)))
-  ;; add new members
-  (when (< (length (motes p)) (size p))
-    (loop repeat (- (size p) (length (motes p)))
-          do (vector-push-extend (create-mote (operators p)
-                                        (fitness-function p) (test-input p))
-                                 (motes p))))
-  (evaluate-population p)
-  (when (> (fill-pointer (motes p)) (size p))
-    (setf (fill-pointer (motes p)) (size p)))
-  (motes p))
-
-
-(defmethod sort-best-motes ((obj population))
-  "Sorts (BEST-MOTES OBJ) from best fitness to worst fitness."
-  (setf (best-motes obj)
-        (sort (best-motes obj) (lambda (a b) (> (fitness a) (fitness b))))))
 
 
 (defmethod sort-motes ((obj population))

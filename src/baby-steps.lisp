@@ -16,15 +16,8 @@
     (eval (append1 '(lambda (=input=)) tree))))
 
 
-;(defun print-results (tree fitness-function input)
-;  (format t "~8@A | ~24@A | ~24@A~%" "in" "out" "wanted")
-;  (format t "---------|--------------------------~
-;                      |--------------------------~%")
-;  (loop for i from 0 below (length input)
-;        for in = (elt input i)
-;        for out = (run-tree tree in)
-;        for target = (funcall fitness-function in)
-;        do (format t "~8@S | ~24@S | ~24@S~%" in out target)))
+(defmethod nth-mote ((p population) index)
+  (elt (motes p) index))
 
 
 (defun random-node (tree)

@@ -27,6 +27,11 @@
           (subseq sequence 0 amount))))
 
 
+(defun mkstr (&rest args)
+  (with-output-to-string (s)
+    (dolist (a args) (princ a s))))
+
+
 (defun random-elt (sequence)
   "Returns a random element from SEQUENCE."
   (let ((length (length sequence)))

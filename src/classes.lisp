@@ -19,17 +19,16 @@
 ;; FITNESS can be deduced but I use it in PRINT-OBJECT and don't want to
 ;; recalculate every time I print objects to the REPL.
 (defclass mote (subtree)
-  ((fitness :accessor fitness :initarg :fitness)))
+  ((fitness :accessor fitness :initarg :fitness)
+   (fn :accessor fn :initarg :fn)))
 
 
 (defclass population ()
-  ((best-motes :accessor best-motes :initform (make-array 0 :fill-pointer 0))
-   (best-size :accessor best-size :initarg :best-size :initform 10)
-   (fitness-function :accessor fitness-function :initarg :fitness-function)
+  ((fitness-fn :accessor fitness-fn :initarg :fitness-fn)
    (motes :accessor motes :initarg :motes)
    (operators :accessor operators :initarg :operators)
    (size :accessor size :initarg :size :initform 100)
-   (test-input :accessor test-input :initarg :test-input :initform '(-1 0 1))))
+   (test-input :accessor test-input :initarg :test-input :initform '(-2 0 1))))
 
 
 ;;; PRINT-OBJECT Methods
