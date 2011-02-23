@@ -20,6 +20,8 @@
 ;; recalculate every time I print objects to the REPL.
 (defclass mote (subtree)
   ((fitness :accessor fitness :initarg :fitness)
+   ;; only used in ADVANCE-GENERATION-FITNESS-PROPORTIONATE
+   (normalised-fitness :accessor normalised-fitness :initform nil)
    (fn :accessor fn :initarg :fn)))
 
 
@@ -36,6 +38,8 @@
 (defmethod print-object ((obj mote) stream)
   (print-unreadable-object (obj stream :type t)
     (format stream "fitness=~A n-nodes=~A" (fitness obj) (n-nodes obj))))
+    ;(format stream "fitness=~A (~A) n-nodes=~A"
+    ;        (fitness obj) (normalised-fitness obj) (n-nodes obj))))
 
 
 (defmethod print-object ((obj population) stream)

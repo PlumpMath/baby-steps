@@ -11,6 +11,7 @@
 
 ;; Not quite fitness-proportionate I think, need to check.
 (defmethod advance-generation-fitness-proportionate ((p population))
+  (normalise-fitness p)
   (let ((ffn (fitness-fn p))
         (ti (test-input p))
         (motes-copy (head (sort (motes p) (lambda (a b)
@@ -20,7 +21,7 @@
     (loop for mote across motes-copy
           for i from 0
           do (vector-push-extend mote (motes p))
-             (when (<= (random 1.0d0) (fitness mote))
+             (when (<= (random 1.0d0) (normalised-fitness mote))
                (if (<= (random 100) 90)
                    (let* ((tree (crossover (tree mote)
                                            (tree (random-elt motes-copy))))
@@ -107,7 +108,9 @@
            (sort-motes p)))))
 
 
-(defmethod advance-generation ((p population) &key (method :tournament))
+;(defmethod advance-generation ((p population) &key (method :tournament))
+(defmethod advance-generation ((p population)
+                               &key (method :fitness-proportionate))
   (case method
     (:fitness-proportionate (advance-generation-fitness-proportionate p))
     (:tournament (advance-generation-tournament p))
