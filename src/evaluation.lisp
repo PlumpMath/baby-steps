@@ -23,6 +23,14 @@
     (replace-duplicates p)))
 
 
+(defmethod add-to-population ((p population) (m mote))
+  (vector-push-extend m (motes p)))
+
+
+(defmethod clear-motes ((p population))
+  (setf (fill-pointer (motes p)) 0))
+
+
 ;; Not quite fitness-proportionate I think, need to check.
 (defmethod advance-generation-fitness-proportionate ((p population))
   (normalise-fitness p)
@@ -31,27 +39,27 @@
         (motes (head (sort (motes p) (lambda (a b)
                                        (> (fitness a) (fitness b))))
                      (size p))))
-    (setf (fill-pointer (motes p)) 0)
+    (clear-motes p)
     (loop for mote across motes
-          do (vector-push-extend mote (motes p))
+          do (add-to-population p mote)
              (when (<= (random 1.0d0) (normalised-fitness mote))
-               (let ((rnr (random 100)))
-                 (cond ((<= rnr 80)
+               (let ((random-nr (random 100)))
+                 (cond ((<= random-nr 80)
                         (let* ((tree (crossover (tree mote)
                                                 (tree (random-elt motes))))
                                (new-mote (create-mote-from-tree tree ffn ti)))
                           (when (fitness new-mote)
-                            (vector-push-extend new-mote (motes p)))))
-                       ((<= rnr 90)
+                            (add-to-population p new-mote))))
+                       ((<= random-nr 90)
                         (let* ((tree (mutate (tree mote) (operators p)))
                                (new-mote (create-mote-from-tree tree ffn ti)))
                           (when (fitness new-mote)
-                            (vector-push-extend new-mote (motes p)))))
+                            (add-to-population p new-mote))))
                        (t
                         (let* ((tree (bloat-to-float (tree mote)))
                                (new-mote (create-mote-from-tree tree ffn ti)))
                           (when (fitness new-mote)
-                            (vector-push-extend new-mote (motes p)))))))))))
+                            (add-to-population p new-mote))))))))))
 
 
 (defmethod advance-generation-tournament ((p population))
@@ -61,22 +69,22 @@
     (loop while participants
           for p1 = (pop participants)
           for p2 = (pop participants)
-          do (let ((rnr (random 100)))
-               (cond ((<= rnr 80)
+          do (let ((random-nr (random 100)))
+               (cond ((<= random-nr 80)
                       (let* ((tree (crossover (tree p1) (tree p2)))
                              (new-mote (create-mote-from-tree tree ffn ti)))
                         (when (fitness new-mote)
-                          (vector-push-extend new-mote (motes p)))))
-                     ((<= rnr 90)
+                          (add-to-population p new-mote))))
+                     ((<= random-nr 90)
                       (let* ((tree (mutate (tree p1) (operators p)))
                              (new-mote (create-mote-from-tree tree ffn ti)))
                         (when (fitness new-mote)
-                          (vector-push-extend new-mote (motes p)))))
+                          (add-to-population p new-mote))))
                      (t
                       (let* ((tree (bloat-to-float (tree p1)))
                              (new-mote (create-mote-from-tree tree ffn ti)))
                         (when (fitness new-mote)
-                          (vector-push-extend new-mote (motes p))))))))))
+                          (add-to-population p new-mote)))))))))
 
 
 (defun calculate-fitness (tree fitness-fn test-input &key (debug nil))
@@ -164,9 +172,9 @@
                                 (let ((n (floor (* 0.2 (size p)))))
                                   (if (oddp n) (+ n 1) n)))
         until (>= candidate-nr n-candidates)
-        for rnr = (random (size p))
-        do (unless (member rnr candidate-indexes)
-             (push rnr candidate-indexes)
+        for random-nr = (random (size p))
+        do (unless (member random-nr candidate-indexes)
+             (push random-nr candidate-indexes)
              (incf candidate-nr))
         finally (return (sort (loop for index in candidate-indexes
                                     collect (nth-mote p index))
