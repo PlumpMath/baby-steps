@@ -13,9 +13,12 @@
   (case method
     (:fitness-proportionate (advance-generation-fitness-proportionate p))
     (:tournament (advance-generation-tournament p))
-    (otherwise (error "Unknown ADVANCE-GENERATION method.")))
+    (otherwise (error "Unknown ADVANCE-GENERATION method: ~S" method)))
   (population-to-size p)
   (setf (diversity p) (population-diversity p))
+  ;; While this has an effect, it just means the population now fills up with
+  ;; not exact duplicates but almost exact duplicates (with the same fitness
+  ;; no less!).
   (when (< (diversity p) 0.8)
     (replace-duplicates p)))
 
@@ -30,7 +33,6 @@
                      (size p))))
     (setf (fill-pointer (motes p)) 0)
     (loop for mote across motes
-          for i from 0
           do (vector-push-extend mote (motes p))
              (when (<= (random 1.0d0) (normalised-fitness mote))
                (let ((rnr (random 100)))
