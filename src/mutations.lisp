@@ -9,6 +9,7 @@
 
 ;;; Functions
 
+;; Subtree mutation.
 (defun mutate (tree operators &key (debug nil))
   "Replaces a random node in TREE with a random tree."
   (let ((rtree (create-random-tree operators))

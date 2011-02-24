@@ -11,18 +11,18 @@
 
 (defun copy-mote (mote)
   "Returns a new MOTE instance with the same slot values as MOTE."
-  (make-instance 'mote :fitness (fitness mote) :fn (fn mote)
-                       :n-nodes (n-nodes mote) :tree (copy-tree (tree mote))))
+  (make-instance 'mote :fitness (fitness mote) :n-nodes (n-nodes mote)
+                 :tree (copy-tree (tree mote))))
 
 
 (defun create-initial-population (operators fitness-fn test-input
                                   &key (max-depth 4) (method :ramped-half-half)
                                        (size 100))
-  (let ((population (make-instance 'population
-                                   :fitness-fn fitness-fn
-                                   :motes (make-array 0 :fill-pointer 0)
-                                   :operators operators
-                                   :size size
+  "METHOD must be :FULL, :GROW or :RAMPED-HALF-HALF."
+  (let ((population (make-instance 'population :fitness-fn fitness-fn
+                                   :motes (make-array size :adjustable t
+                                                      :fill-pointer 0)
+                                   :operators operators :size size
                                    :test-input test-input)))
     (loop with n-motes = 0
           until (>= n-motes size)
@@ -51,9 +51,13 @@
         finally (when debug
                   (format t "[create-mote] took ~A tries.~%" i))
                 (return (make-instance 'mote :fitness fitness
-                                             :fn (make-function rtree)
                                              :n-nodes (calculate-n-nodes rtree)
                                              :tree rtree))))
+
+
+(defun create-mote-from-tree (tree fitness-fn test-input)
+  (make-instance 'mote :tree tree :n-nodes (calculate-n-nodes tree)
+                 :fitness (calculate-fitness tree fitness-fn test-input)))
 
 
 (defun create-random-tree (operators &key (max-depth 4) (method :grow))

@@ -35,6 +35,12 @@
   (elt (motes p) index))
 
 
+(defmethod print-trees ((p population))
+  (loop for mote across (motes p)
+        for i from 0
+        do (format t "--- ~D ---~%~S~%" i (tree mote))))
+
+
 (defun random-node (tree)
   "Returns a random node from TREE."
   (let* ((index 1)

@@ -12,21 +12,21 @@
 ;; N-NODES can be deduced but I use it in PRINT-OBJECT and don't want to
 ;; recalculate every time I print objects to the REPL.
 (defclass subtree ()
-  ((n-nodes :accessor n-nodes :initarg :n-nodes)
-   (tree :accessor tree :initarg :tree)))
+  ((n-nodes :reader n-nodes :initarg :n-nodes)
+   (tree :reader tree :initarg :tree)))
 
 
 ;; FITNESS can be deduced but I use it in PRINT-OBJECT and don't want to
 ;; recalculate every time I print objects to the REPL.
 (defclass mote (subtree)
-  ((fitness :accessor fitness :initarg :fitness)
+  ((fitness :reader fitness :initarg :fitness)
    ;; only used in ADVANCE-GENERATION-FITNESS-PROPORTIONATE
-   (normalised-fitness :accessor normalised-fitness :initform nil)
-   (fn :accessor fn :initarg :fn)))
+   (normalised-fitness :accessor normalised-fitness :initform nil)))
 
 
 (defclass population ()
-  ((fitness-fn :accessor fitness-fn :initarg :fitness-fn)
+  ((diversity :accessor diversity :initform 1.0)  ; 100%
+   (fitness-fn :accessor fitness-fn :initarg :fitness-fn)
    (motes :accessor motes :initarg :motes)
    (operators :accessor operators :initarg :operators)
    (size :accessor size :initarg :size :initform 100)

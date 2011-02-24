@@ -13,11 +13,11 @@
 
 ;;; Globals
 
-(defparameter *fitness-function* (lambda (r) (* pi (* r r))))
+(defparameter *fitness-fn* (lambda (r) (* pi (* r r))))
 
-(defparameter *test-input* '(-2 0 1))
+(defparameter *test-input* '(-2 0 1 23 456))
 
-(defparameter *operators* '(+ - * /))
+(defparameter *operators* '(+ - *))
 
 
 ;;; Functions & Methods
@@ -53,14 +53,18 @@
 (defun example-run (&optional population)
   (let ((p (if population
                population
-               (create-initial-population *operators* *fitness-function*
+               (create-initial-population *operators* *fitness-fn*
                                           *test-input*))))
     (format t "Running 50 generations...~%")
+    (format t "diversity: ~S~%total nodes: ~S~%---~%"
+            (population-diversity p)
+            (loop for mote across (motes p) sum (n-nodes mote)))
     (setf p (run-generations p 50))
     (format t "--- best mote ---~%~S~%---~%" (tree (nth-mote p 0)))
-    (calculate-fitness (tree (nth-mote p 0)) *fitness-function* *test-input*
+    (calculate-fitness (tree (nth-mote p 0)) *fitness-fn* *test-input*
                        :debug t)
-    (format t "---~%total nodes: ~S~%"
+    (format t "---~%diversity: ~S~%total nodes: ~S~%"
+            (population-diversity p)
             (loop for mote across (motes p) sum (n-nodes mote)))
     (format t (mkstr "---~%Done.  Call \"(example-run *)\" to continue with "
                      "the same population.~%"))
