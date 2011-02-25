@@ -78,7 +78,7 @@
 
 ;;; Main
 
-(defun example-run (&optional population)
+(defun example-run (&key (population nil) (runs 50))
   (let ((p (if population
                population
                (create-initial-population *operators* *terminals* *fitness-fn*
@@ -87,13 +87,11 @@
     (format t "diversity: ~S~%total nodes: ~S~%---~%"
             (population-diversity p)
             (loop for mote across (motes p) sum (n-nodes mote)))
-    (setf p (run-generations p 50))
+    (setf p (run-generations p runs))
     (format t "--- best mote ---~%~S~%---~%" (tree (nth-mote p 0)))
     (calculate-fitness (tree (nth-mote p 0)) *terminals* *fitness-fn*
                        *test-input* :debug t)
     (format t "---~%diversity: ~S~%total nodes: ~S~%"
             (population-diversity p)
             (loop for mote across (motes p) sum (n-nodes mote)))
-    (format t (mkstr "---~%Done.  Call \"(example-run *)\" to continue with "
-                     "the same population.~%"))
     p))
