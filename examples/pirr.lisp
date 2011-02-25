@@ -17,7 +17,35 @@
 
 (defparameter *test-input* '(-2 0 1 23 456))
 
-(defparameter *operators* '(+ - *))
+(defparameter *operators*
+  '((:operator +   :type number :arity :max)
+    (:operator -   :type number :arity :max)
+    (:operator *   :type number :arity :max)
+    ;(:operator /   :type number :arity :max)  ; divide-by-zero
+    (:operator cos :type number :arity 1)
+    (:operator sin :type number :arity 1)))
+
+;; Terminals
+
+
+(defun random-double-float-0-10 ()
+  (random 10.0d0))
+
+
+(defun random-float-0-10 ()
+  (random 10.0))
+
+
+(defun random-int-0-10 ()
+  (random 11))
+
+
+(defparameter *terminals*
+  `((:terminal =input=                     :type number :input t)
+    ;(:terminal ,pi                         :type double-float)  ; cheating
+    (:terminal ,#'random-double-float-0-10 :type double-float)
+    (:terminal ,#'random-float-0-10        :type float)
+    (:terminal ,#'random-int-0-10          :type integer)))
 
 
 ;;; Functions & Methods
@@ -53,7 +81,7 @@
 (defun example-run (&optional population)
   (let ((p (if population
                population
-               (create-initial-population *operators* *fitness-fn*
+               (create-initial-population *operators* *terminals* *fitness-fn*
                                           *test-input*))))
     (format t "Running 50 generations...~%")
     (format t "diversity: ~S~%total nodes: ~S~%---~%"

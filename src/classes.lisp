@@ -30,6 +30,7 @@
    (motes :accessor motes :initarg :motes)
    (operators :accessor operators :initarg :operators)
    (size :accessor size :initarg :size :initform 100)
+   (terminals :accessor terminals :initarg :terminals)
    (test-input :accessor test-input :initarg :test-input :initform '(-2 0 1))))
 
 

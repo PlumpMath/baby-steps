@@ -1,8 +1,8 @@
 ;;;; baby-steps.lisp
 ;;;;
 ;;;; Notes to self:
-;;;; * #'sb-introspect:function-lambda-list
-;;;; * swank possibly provides 'trivial-introspect'
+;;;; o Would multiple crossovers / mutations per individual per run get some
+;;;;   runs out of a local minimum?
 
 (in-package :baby-steps)
 

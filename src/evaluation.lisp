@@ -51,7 +51,8 @@
                           (when (fitness new-mote)
                             (add-to-population p new-mote))))
                        ((<= random-nr 90)
-                        (let* ((tree (mutate (tree mote) (operators p)))
+                        (let* ((tree (mutate (tree mote) (operators p)
+                                             (terminals p)))
                                (new-mote (create-mote-from-tree tree ffn ti)))
                           (when (fitness new-mote)
                             (add-to-population p new-mote))))
@@ -76,7 +77,8 @@
                         (when (fitness new-mote)
                           (add-to-population p new-mote))))
                      ((<= random-nr 90)
-                      (let* ((tree (mutate (tree p1) (operators p)))
+                      (let* ((tree (mutate (tree p1) (operators p)
+                                           (terminals p)))
                              (new-mote (create-mote-from-tree tree ffn ti)))
                         (when (fitness new-mote)
                           (add-to-population p new-mote))))
@@ -127,7 +129,8 @@
         for tree = (tree mote)
         do (if (equal tree prev-tree)
                (setf (aref (motes p) i)
-                     (create-mote (operators p) (fitness-fn p) (test-input p)))
+                     (create-mote (operators p) (terminals p) (fitness-fn p)
+                                  (test-input p)))
                (setf prev-tree tree))))
 
 
@@ -159,7 +162,8 @@
         ((< (length (motes p)) (size p))
          (loop repeat (- (size p) (length (motes p)))
                do (vector-push-extend
-                   (create-mote (operators p) (fitness-fn p) (test-input p))
+                   (create-mote (operators p) (terminals p) (fitness-fn p)
+                                (test-input p))
                    (motes p)))
          (sort-motes p))))
 
