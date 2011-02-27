@@ -50,13 +50,13 @@
 
 ;;; Functions & Methods
 
-;(defun print-results (tree fitness-function input)
+;(defun print-results (tree terminals fitness-function input)
 ;  (format t "~8@A | ~24@A | ~24@A~%" "in" "out" "wanted")
 ;  (format t "---------|--------------------------~
 ;                      |--------------------------~%")
 ;  (loop for i from 0 below (length input)
 ;        for in = (elt input i)
-;        for out = (run-tree tree in)
+;        for out = (run-tree tree terminals in)
 ;        for target = (funcall fitness-function in)
 ;        do (format t "~8@S | ~24@S | ~24@S~%" in out target)))
 
@@ -89,8 +89,8 @@
             (loop for mote across (motes p) sum (n-nodes mote)))
     (setf p (run-generations p 50))
     (format t "--- best mote ---~%~S~%---~%" (tree (nth-mote p 0)))
-    (calculate-fitness (tree (nth-mote p 0)) *fitness-fn* *test-input*
-                       :debug t)
+    (calculate-fitness (tree (nth-mote p 0)) *terminals* *fitness-fn*
+                       *test-input* :debug t)
     (format t "---~%diversity: ~S~%total nodes: ~S~%"
             (population-diversity p)
             (loop for mote across (motes p) sum (n-nodes mote)))

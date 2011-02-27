@@ -48,7 +48,7 @@
         for rtree = (create-random-tree operators terminals :method method
                                         :max-depth max-depth
                                         :max-operator-arity max-operator-arity)
-        for fitness = (calculate-fitness rtree fitness-fn test-input)
+        for fitness = (calculate-fitness rtree terminals fitness-fn test-input)
         until fitness
         finally (when debug
                   (format t "[create-mote] took ~A tries.~%" i))
@@ -57,9 +57,9 @@
                                              :tree rtree))))
 
 
-(defun create-mote-from-tree (tree fitness-fn test-input)
+(defun create-mote-from-tree (tree terminals fitness-fn test-input)
   (make-instance 'mote :tree tree :n-nodes (calculate-n-nodes tree)
-                 :fitness (calculate-fitness tree fitness-fn test-input)))
+            :fitness (calculate-fitness tree terminals fitness-fn test-input)))
 
 
 (defun create-random-tree (operators terminals &key (max-depth 4)

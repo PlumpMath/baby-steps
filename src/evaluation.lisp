@@ -36,6 +36,7 @@
   (normalise-fitness p)
   (let ((ffn (fitness-fn p))
         (ti (test-input p))
+        (ters (terminals p))
         (motes (head (sort (motes p) (lambda (a b)
                                        (> (fitness a) (fitness b))))
                      (size p))))
@@ -47,18 +48,21 @@
                  (cond ((<= random-nr 80)
                         (let* ((tree (crossover (tree mote)
                                                 (tree (random-elt motes))))
-                               (new-mote (create-mote-from-tree tree ffn ti)))
+                               (new-mote (create-mote-from-tree tree ters ffn
+                                                                ti)))
                           (when (fitness new-mote)
                             (add-to-population p new-mote))))
                        ((<= random-nr 90)
                         (let* ((tree (mutate (tree mote) (operators p)
                                              (terminals p)))
-                               (new-mote (create-mote-from-tree tree ffn ti)))
+                               (new-mote (create-mote-from-tree tree ters ffn
+                                                                ti)))
                           (when (fitness new-mote)
                             (add-to-population p new-mote))))
                        (t
                         (let* ((tree (bloat-to-float (tree mote)))
-                               (new-mote (create-mote-from-tree tree ffn ti)))
+                               (new-mote (create-mote-from-tree tree ters ffn
+                                                                ti)))
                           (when (fitness new-mote)
                             (add-to-population p new-mote))))))))))
 
@@ -66,6 +70,7 @@
 (defmethod advance-generation-tournament ((p population))
   (let ((ffn (fitness-fn p))
         (ti (test-input p))
+        (ters (terminals p))
         (participants (select-tournament-participants p)))
     (loop while participants
           for p1 = (pop participants)
@@ -73,25 +78,30 @@
           do (let ((random-nr (random 100)))
                (cond ((<= random-nr 80)
                       (let* ((tree (crossover (tree p1) (tree p2)))
-                             (new-mote (create-mote-from-tree tree ffn ti)))
+                             (new-mote (create-mote-from-tree tree ters ffn
+                                                              ti)))
                         (when (fitness new-mote)
                           (add-to-population p new-mote))))
                      ((<= random-nr 90)
                       (let* ((tree (mutate (tree p1) (operators p)
                                            (terminals p)))
-                             (new-mote (create-mote-from-tree tree ffn ti)))
+                             (new-mote (create-mote-from-tree tree ters ffn
+                                                              ti)))
                         (when (fitness new-mote)
                           (add-to-population p new-mote))))
                      (t
                       (let* ((tree (bloat-to-float (tree p1)))
-                             (new-mote (create-mote-from-tree tree ffn ti)))
+                             (new-mote (create-mote-from-tree tree ters ffn
+                                                              ti)))
                         (when (fitness new-mote)
                           (add-to-population p new-mote)))))))))
 
 
-(defun calculate-fitness (tree fitness-fn test-input &key (debug nil))
+;; TODO add optional bias for size (smaller is better)
+(defun calculate-fitness (tree terminals fitness-fn test-input
+                          &key (debug nil))
   (loop with fn = ;; TODO test whether handler-case is needed here
-                  (handler-case (make-function tree)
+                  (handler-case (make-function tree terminals)
                     (error () (return-from calculate-fitness nil)))
         with fs = nil
         for i in test-input

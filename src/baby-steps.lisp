@@ -10,10 +10,14 @@
 ;;; Functions & Methods
 
 ;; This depends on the example :-|
-(defun make-function (tree)
+(defun make-function (tree terminals)
   "Turns TREE into a function object."
-  (let ((*error-output* (make-broadcast-stream)))  ; thanks stassats!
-    (eval (append1 '(lambda (=input=)) tree))))
+  (let ((*error-output* (make-broadcast-stream))  ; thanks stassats!
+        (input-args (loop for terminal in terminals
+                          when (getf terminal :input)
+                            collect (getf terminal :terminal))))
+    ;(eval (append1 '(lambda (=input=)) tree))))
+    (eval (append1 `(lambda ,input-args) tree))))
 
 
 (defmethod normalise-fitness ((p population))
@@ -74,6 +78,6 @@
       (traverse-nodes tree))))
 
 
-(defun run-tree (tree input)
+(defun run-tree (tree terminals input)
   "Turns TREE into a function and calls it with INPUT."
-  (funcall (make-function tree) input))
+  (funcall (make-function tree terminals) input))
