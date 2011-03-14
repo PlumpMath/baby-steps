@@ -8,8 +8,7 @@
 (format t "~&Loading lisp-unit...~%")
 (load "test/lisp-unit")
 (format t "Loading baby-steps.lisp...~%")
-(load "src/baby-steps.lisp")
-
+(asdf:oos 'asdf:load-op :baby-steps)
 (in-package :baby-steps)
 (use-package :lisp-unit)
 
@@ -26,11 +25,11 @@
   (assert-equal '(1 2 3) (append1 '(1 2) 3))
   (assert-equal '(1 2 (3 4)) (append1 '(1 2) '(3 4))))
 
-(define-test calculate-fitness ()
-  (assert-equal 0.001 (calculate-fitness '(- =input=  8) ffn1 ffn1-input))
-  (assert-equal 1.0   (calculate-fitness '(- =input= -1) ffn1 ffn1-input))
-  (assert-equal 1.0   (calculate-fitness '(+ =input=  1) ffn1 ffn1-input))
-  (assert-equal 0.125 (calculate-fitness '(+ =input=  2) ffn1 ffn1-input)))
+;(define-test calculate-fitness ()
+;  (assert-equal 0.001 (calculate-fitness '(- =input=  8) ffn1 ffn1-input))
+;  (assert-equal 1.0   (calculate-fitness '(- =input= -1) ffn1 ffn1-input))
+;  (assert-equal 1.0   (calculate-fitness '(+ =input=  1) ffn1 ffn1-input))
+;  (assert-equal 0.125 (calculate-fitness '(+ =input=  2) ffn1 ffn1-input)))
 
 (define-test head ()
   (assert-equal nil (head '()))
