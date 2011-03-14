@@ -4,7 +4,7 @@
 ;;;;
 ;;;; See the LICENSE file in the Baby Steps root directory for more info.
 ;;;;
-;;;; This file contains function for which one actually ought to use an
+;;;; This file contains functions for which one actually ought to use an
 ;;;; external utilities package like Alexandria or Arnesi.
 
 (in-package :baby-steps)

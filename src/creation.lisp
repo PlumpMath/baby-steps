@@ -64,10 +64,9 @@
 
 (defun create-random-tree (operators terminals &key (max-depth 4)
                            (max-operator-arity 4) (method :grow))
-  "Generates a random tree using OPERATORS.  MAX-DEPTH must either be an
-  integer equal to or greater than 0 or :UNLIMITED.  The latter is not
-  recommended and only possible for the :GROW method.
-  METHOD must be eithet :FULL or :GROW."
+  "Calls either CREATE-RANDOM-TREE-FULL or CREATE-RANDOM-TREE-GROW depending
+  on METHOD.
+  METHOD must be either :FULL or :GROW (default)."
   (case method
     (:full (create-random-tree-full operators terminals :max-depth max-depth
                                     :max-operator-arity max-operator-arity))
@@ -101,7 +100,7 @@
 (defun create-random-tree-grow (operators terminals &key (max-depth 4)
                                 (max-operator-arity 4))
   "Generates a random tree using OPERATORS and TERMINALS.
-  MAX-DEPTH must either be an integer equal to or greater than 0."
+  MAX-DEPTH must be an integer equal to or greater than 0."
   (let ((op (random-elt operators)))
     (append (list (getf op :operator))
             (loop with arity = (getf op :arity)

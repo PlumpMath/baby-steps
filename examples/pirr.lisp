@@ -25,8 +25,8 @@
     (:operator cos :type number :arity 1)
     (:operator sin :type number :arity 1)))
 
-;; Terminals
 
+;; Terminals
 
 (defun random-double-float-0-10 ()
   (random 10.0d0))
