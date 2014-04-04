@@ -3,11 +3,12 @@
 ;;;; author: Erik Winkels (aerique@xs4all.nl)
 ;;;;
 ;;;; See the LICENSE file in the Baby Steps root directory for more info.
+;;;;
+;;;; Description: find the program that best calculates the area of a circle.
 
 ;;; Packages
 
-(asdf:oos 'asdf:load-op :baby-steps)
-
+(ql:quickload :baby-steps)
 (in-package :baby-steps)
 
 

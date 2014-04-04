@@ -6,18 +6,19 @@
 ;;;;
 ;;;; Requires "aplay" to be installed on your system and findable in your path.
 
+#-sbcl (format t "This example only works on SBCL.~%")
+
 ;;; Packages
 
-(asdf:oos 'asdf:load-op :baby-steps)
-
+(ql:quickload :baby-steps)
 (in-package :baby-steps)
 
 
 ;;; Globals
 
-(defparameter *aplay-proc* (run-program "aplay" nil :input stream :search t
-                                        :wait nil))
-(defparameter *aplay* (process-input aplay-proc))
+(defparameter *aplay-proc* (sb-ext:run-program "aplay" nil :input :stream
+                                               :search t :wait nil))
+(defparameter *aplay* (sb-ext:process-input *aplay-proc*))
 
 ;; not applicable since the user decides the fitness
 (defparameter *fitness-fn* (lambda (x) (declare (ignore x)) 1.0))
@@ -55,7 +56,51 @@
     (:terminal ,#'random-int-0-10          :type integer)))
 
 
-;;; Main
+;;;; Functions
+
+(defun play-tree (tree &key (duration 5.0) (sample-rate 8000))
+  (loop with fn = (make-function tree *terminals*)
+        for time from 0.0 to duration by (/ 1.0 sample-rate)
+        for value = (let ((val (floor (* 127 (+ (funcall fn time) 1)))))
+                      (cond ((< val 0) 0)
+                            ((> val 255) 255)
+                            (t val)))
+        do (write-byte value *aplay*)
+           (finish-output *aplay*)))
+
+
+(defun play-mote (mote &key (duration 5.0) (sample-rate 8000))
+  (play-tree (tree mote) :duration duration :sample-rate sample-rate))
+
+
+;; This sucks.  I really need to read up on sound buffers: getting their
+;; status, nuking them, etc.
+(defun review-motes (population)
+  (format t "Reviewing:~%~S~%" (motes population))
+  (loop for mote across (motes population)
+        for i from 0
+        do (when (member "play-sound" (sb-thread:list-all-threads)
+                         :key #'sb-thread:thread-name :test #'string=)
+             (loop while (member "play-sound" (sb-thread:list-all-threads)
+                                 :key #'sb-thread:thread-name :test #'string=)
+                   for thread = (car (member "play-sound"
+                                             (sb-thread:list-all-threads)
+                                             :key #'sb-thread:thread-name
+                                             :test #'string=))
+                   do (sb-thread:destroy-thread thread)))
+           (format t "[~D] ~S~%score?: " i (tree mote))
+           (force-output)
+           (sb-thread:make-thread (lambda () (play-mote mote))
+                                  :name "play-sound")
+           (let ((score (parse-integer (read-line))))
+             (setf (slot-value mote 'fitness) (case score (1 1.00)
+                                                          (2 0.75)
+                                                          (3 0.50)
+                                                          (4 0.25)
+                                                          (5 0.00))))))
+
+
+;;;; Main
 
 (defun example-run (&key (population nil) (runs 3) (size 10))
   (let ((p (if population
@@ -74,41 +119,3 @@
             (population-diversity p)
             (loop for mote across (motes p) sum (n-nodes mote)))
     p))
-
-
-(defun play-mote (mote &key (duration 5.0) (sample-rate 8000))
-  (play-tree (tree mote) duration sample-rate))
-
-
-(defun play-tree (tree &key (duration 5.0) (sample-rate 8000))
-  (loop with fn = (make-function tree *terminals*)
-        for time from 0.0 to duration by (/ 1.0 sample-rate)
-        for value = (let ((val (floor (* 127 (+ (funcall fn time) 1)))))
-                      (cond ((< val 0) 0)
-                            ((> val 255) 255)
-                            (t val)))
-        do (write-byte value aplay)
-           (finish-output aplay)))
-
-
-;; This sucks.  I really need to read up on sound buffers: getting their
-;; status, nuking them, etc.
-(defun review-motes (population)
-  (loop for mote across (motes population)
-        for i from 0
-        do (when (member "play-sound" (sb-thread:list-all-threads)
-                         :key #'sb-thread:thread-name :test #'string=)
-             (format t "Waiting for last sound to finish...~%")
-             (loop while (member "play-sound" (sb-thread:list-all-threads)
-                                 :key #'sb-thread:thread-name :test #'string=)
-                   do (sleep 0.1)))
-           (format t "[~D] ~S~%score?: " i (tree mote))
-           (sb-thread:make-thread (lambda () (play-mote mote))
-                                  :name "play-sound")
-           (let ((score (parse-integer (read-line))))
-             (setf (slot-value mote 'fitness) (case score
-                                                (1 1.00)
-                                                (2 0.75)
-                                                (3 0.50)
-                                                (4 0.25)
-                                                (5 0.00))))))
