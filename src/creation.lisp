@@ -15,16 +15,31 @@
                  :tree (copy-tree (tree mote))))
 
 
-(defun create-initial-population (operators terminals fitness-fn test-input
-                                  &key (max-depth 4) (method :ramped-half-half)
-                                       (size 100))
-  "METHOD must be :FULL, :GROW or :RAMPED-HALF-HALF."
-  (let ((population (make-instance 'population :fitness-fn fitness-fn
+(defun create-mote (operators terminals &key (debug nil) (max-depth 4)
+                    (max-operator-arity 4) (method :grow))
+  "Creates a new MOTE instance.  FITNESS will be NIL, it is the reponsability
+  of the API user to calculate the FITNESS."
+  (let ((rtree (create-random-tree operators terminals :method method
+                 :max-depth max-depth :max-operator-arity max-operator-arity)))
+    (create-mote-from-tree rtree)))
+
+
+(defun create-mote-from-tree (tree)
+  "Creates a new MOTE instance based on TREE."
+  (make-instance 'mote :tree tree :n-nodes (calculate-n-nodes tree)))
+
+
+(defun create-population (operators terminals &key (max-depth 4) (size 100)
+                          (method :ramped-half-half))
+  "METHOD must be :FULL, :GROW or :RAMPED-HALF-HALF.
+  CREATE-INITIAL-POPULATION does not check if the population has invalid
+  members (ie. members which will not pass your fitness function).  Either
+  use your own population creation function or replace invalid members
+  afterwards."
+  (let ((population (make-instance 'population :operators operators :size size
                                    :motes (make-array size :adjustable t
                                                       :fill-pointer 0)
-                                   :operators operators :size size
-                                   :terminals terminals
-                                   :test-input test-input)))
+                                   :terminals terminals)))
     (loop with n-motes = 0
           until (>= n-motes size)
           ;; always ramp up to max-depth from 0
@@ -32,34 +47,11 @@
           for cm-method = (if (equal method :ramped-half-half)
                               (if (evenp n-motes) :full :grow)
                               method)
-          for mote = (create-mote operators terminals fitness-fn test-input
-                                  :max-depth cm-max-depth :method cm-method)
-          when (fitness mote)
-          do (vector-push-extend mote (motes population))  ; add-to-population?
+          for mote = (create-mote operators terminals :max-depth cm-max-depth
+                                  :method cm-method)
+          do (add-to-population population mote)
              (incf n-motes))
-    (sort-motes population)
     population))
-
-
-(defun create-mote (operators terminals fitness-fn test-input &key (debug nil)
-                    (max-depth 4) (max-operator-arity 4) (method :grow))
-  "Creates a new MOTE instance with a fitness guaranteed not be NIL."
-  (loop for i from 1
-        for rtree = (create-random-tree operators terminals :method method
-                                        :max-depth max-depth
-                                        :max-operator-arity max-operator-arity)
-        for fitness = (calculate-fitness rtree terminals fitness-fn test-input)
-        until fitness
-        finally (when debug
-                  (format t "[create-mote] took ~A tries.~%" i))
-                (return (make-instance 'mote :fitness fitness
-                                             :n-nodes (calculate-n-nodes rtree)
-                                             :tree rtree))))
-
-
-(defun create-mote-from-tree (tree terminals fitness-fn test-input)
-  (make-instance 'mote :tree tree :n-nodes (calculate-n-nodes tree)
-            :fitness (calculate-fitness tree terminals fitness-fn test-input)))
 
 
 (defun create-random-tree (operators terminals &key (max-depth 4)

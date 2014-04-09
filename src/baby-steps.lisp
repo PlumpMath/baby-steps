@@ -9,32 +9,6 @@
 
 ;;; Functions & Methods
 
-;; This depends on the example :-|
-(defun make-function (tree terminals)
-  "Turns TREE into a function object."
-  (let ((*error-output* (make-broadcast-stream))  ; thanks stassats!
-        (input-args (loop for terminal in terminals
-                          when (getf terminal :input)
-                            collect (getf terminal :terminal))))
-    ;(eval (append1 '(lambda (=input=)) tree))))
-    (eval (append1 `(lambda ,input-args) tree))))
-
-
-(defmethod normalise-fitness ((p population))
-  (let* ((min-max (loop for mote across (motes p)
-                        maximize (fitness mote) into max-result
-                        minimize (fitness mote) into min-result
-                        finally (return (list :max max-result
-                                              :min min-result))))
-         (max (getf min-max :max))
-         (min (getf min-max :min)))
-    (loop for mote across (motes p)
-          do (setf (normalised-fitness mote)
-                   (if (= min max)
-                       1.0
-                       (/ (- (fitness mote) min) max))))))
-
-
 (defmethod nth-mote ((p population) index)
   (elt (motes p) index))
 
@@ -46,7 +20,8 @@
 
 
 (defun random-node (tree)
-  "Returns a random node from TREE."
+  "Returns a random node from TREE.
+  Format '(:INDEX index-of-node :NODE the-actual-node)."
   (let* ((index 1)
          (nodes-1 (- (calculate-n-nodes tree) 1))
          (random-node (+ (random nodes-1) 1)))

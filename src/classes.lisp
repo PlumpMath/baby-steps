@@ -10,24 +10,21 @@
 ;;; Classes
 
 (defclass subtree ()
-  ((n-nodes :reader n-nodes :initarg :n-nodes)
-   (tree :reader tree :initarg :tree)))
+  ((n-nodes :accessor n-nodes :initarg :n-nodes)
+   (tree :accessor tree :initarg :tree)))
 
 
 (defclass mote (subtree)
-  ((fitness :reader fitness :initarg :fitness)
-   ;; only used in ADVANCE-GENERATION-FITNESS-PROPORTIONATE
-   (normalised-fitness :accessor normalised-fitness :initform nil)))
+  ((fitness :accessor fitness :initarg :fitness :initform nil)
+   (fn :accessor fn :initarg fn :initform nil)))
 
 
 (defclass population ()
   ((diversity :accessor diversity :initform 1.0)  ; 100%
-   (fitness-fn :accessor fitness-fn :initarg :fitness-fn)
    (motes :accessor motes :initarg :motes)
    (operators :accessor operators :initarg :operators)
    (size :accessor size :initarg :size :initform 100)
-   (terminals :accessor terminals :initarg :terminals)
-   (test-input :accessor test-input :initarg :test-input :initform '(-2 0 1))))
+   (terminals :accessor terminals :initarg :terminals)))
 
 
 ;;; PRINT-OBJECT Methods
@@ -35,10 +32,8 @@
 (defmethod print-object ((obj mote) stream)
   (print-unreadable-object (obj stream :type t)
     (format stream "fitness=~A n-nodes=~A" (fitness obj) (n-nodes obj))))
-    ;(format stream "fitness=~A (~A) n-nodes=~A"
-    ;        (fitness obj) (normalised-fitness obj) (n-nodes obj))))
 
 
 (defmethod print-object ((obj population) stream)
   (print-unreadable-object (obj stream :type t)
-    (format stream "size=~A" (size obj))))
+    (format stream "diversity=~A size=~A" (diversity obj) (size obj))))

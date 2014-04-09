@@ -9,26 +9,23 @@
 
 ;;; Functions & Methods
 
-(defmethod advance-generation ((p population) &key (method :tournament))
+(defmethod advance-generation ((population population)
+                               &key (method :tournament))
   (case method
-    (:fitness-proportionate (advance-generation-fitness-proportionate p))
-    (:tournament (advance-generation-tournament p))
+    (:fitness-proportionate (advance-generation-fitness-proportionate
+                             population))
+    (:tournament (advance-generation-tournament population))
     (otherwise (error "Unknown ADVANCE-GENERATION method: ~S" method)))
-  (population-to-size p)
-  (setf (diversity p) (population-diversity p))
-  ;; While this has an effect, it just means the population now fills up with
-  ;; not exact duplicates but almost exact duplicates (with the same fitness
-  ;; no less!).
-  (when (< (diversity p) 0.8)
-    (replace-duplicates p)))
+  (population-to-size population)
+  (setf (diversity population) (population-diversity population)))
 
 
-(defmethod add-to-population ((p population) (m mote))
-  (vector-push-extend m (motes p)))
+(defmethod add-to-population ((population population) (m mote))
+  (vector-push-extend m (motes population)))
 
 
-(defmethod clear-motes ((p population))
-  (setf (fill-pointer (motes p)) 0))
+(defmethod clear-motes ((population population))
+  (setf (fill-pointer (motes population)) 0))
 
 
 ;; Not quite fitness-proportionate I think, need to check.
@@ -68,53 +65,18 @@
 
 
 (defmethod advance-generation-tournament ((p population))
-  (let ((ffn (fitness-fn p))
-        (ti (test-input p))
-        (ters (terminals p))
-        (participants (select-tournament-participants p)))
+  (let ((participants (select-tournament-participants p)))
     (loop while participants
           for p1 = (pop participants)
           for p2 = (pop participants)
           do (let ((random-nr (random 100)))
-               (cond ((<= random-nr 80)
-                      (let* ((tree (crossover (tree p1) (tree p2)))
-                             (new-mote (create-mote-from-tree tree ters ffn
-                                                              ti)))
-                        (when (fitness new-mote)
-                          (add-to-population p new-mote))))
-                     ((<= random-nr 90)
-                      (let* ((tree (mutate (tree p1) (operators p)
-                                           (terminals p)))
-                             (new-mote (create-mote-from-tree tree ters ffn
-                                                              ti)))
-                        (when (fitness new-mote)
-                          (add-to-population p new-mote))))
-                     (t
-                      (let* ((tree (bloat-to-float (tree p1)))
-                             (new-mote (create-mote-from-tree tree ters ffn
-                                                              ti)))
-                        (when (fitness new-mote)
-                          (add-to-population p new-mote)))))))))
-
-
-;; TODO add optional bias for size (smaller is better)
-(defun calculate-fitness (tree terminals fitness-fn test-input
-                          &key (debug nil))
-  (loop with fn = ;; TODO test whether handler-case is needed here
-                  (handler-case (make-function tree terminals)
-                    (error () (return-from calculate-fitness nil)))
-        with fs = nil
-        for i in test-input
-        ;for out = (handler-case (run-tree tree i)
-        for out = (handler-case (funcall fn i)
-                    (error () (return-from calculate-fitness nil)))
-        for target = (funcall fitness-fn i)
-        for dto = (abs (- target out))
-        for f = (/ 1.0 (+ 1 dto))
-        do (push f fs)
-           (when debug
-             (format t "i=~S t=~S o=~S f=~S~%" i target out f))
-        finally (return (reduce #'* fs))))
+               (if (<= random-nr 80)  ; FIXME hardcoded
+                   (let* ((tree (crossover (tree p1) (tree p2)))
+                          (new-mote (create-mote-from-tree tree)))
+                     (add-to-population p new-mote))
+                   (let* ((tree (mutate (tree p1) (operators p) (terminals p)))
+                          (new-mote (create-mote-from-tree tree)))
+                     (add-to-population p new-mote)))))))
 
 
 (defun calculate-n-nodes (tree)
@@ -127,6 +89,37 @@
                           (traverse-nodes node)))))
       (traverse-nodes tree))
     nodes))
+
+
+(defun compare-fitness (mote-a mote-b)
+  ;; Put motes with fitness NIL at the top since they might be newly created.
+  (cond ((null (fitness mote-a)) t)
+        ((null (fitness mote-b)) nil)
+        (t (> (fitness mote-a) (fitness mote-b)))))
+
+
+(defun make-function (tree terminals)
+  "Turns TREE into a function object."
+  (let ((*error-output* (make-broadcast-stream))  ; silence *error-output*
+        (input-args (loop for terminal in terminals
+                          when (getf terminal :input)
+                            collect (getf terminal :terminal))))
+    (eval (append1 `(lambda ,input-args) tree))))
+
+
+(defmethod normalise-fitness ((population population))
+  (let* ((min-max (loop for mote across (motes population)
+                        maximize (fitness mote) into max-result
+                        minimize (fitness mote) into min-result
+                        finally (return (list :max max-result
+                                              :min min-result))))
+         (max (getf min-max :max))
+         (min (getf min-max :min)))
+    (loop for mote across (motes population)
+          do (setf (normalised-fitness mote)
+                   (if (= min max)
+                       1.0
+                       (/ (- (fitness mote) min) max))))))
 
 
 (defmethod replace-duplicates ((p population))  ; needs :method
@@ -145,7 +138,7 @@
 
 
 ;; Doesn't actually ever reach 0 since a P of 100 will have max 99 dups.
-(defmethod population-diversity ((p population))
+(defmethod population-diversity ((population population))
   "Returns the diversity of POPULATION as a float, where 1.0 means completely
   diverse (no duplicates) and 0.0 means all the motes in POPULATION are
   similar.
@@ -153,12 +146,12 @@
   this function will not return correct results."
   (loop with duplicates = 0
         with prev-tree = nil
-        for mote across (motes p)
+        for mote across (motes population)
         for tree = (tree mote)
         do (when (equal tree prev-tree)
              (incf duplicates))
            (setf prev-tree tree)
-        finally (return (- 1.0 (/ duplicates (size p))))))
+        finally (return (- 1.0 (/ duplicates (size population))))))
 
 
 (defmethod population-to-size ((p population))
@@ -178,25 +171,33 @@
          (sort-motes p))))
 
 
+;(defmethod select-tournament-participants ((p population))
+;  (loop with candidate-indexes = nil
+;        with candidate-nr = 0
+;        with n-candidates = (if (<= (size p) 10)
+;                                2
+;                                (let ((n (floor (* 0.2 (size p)))))
+;                                  (if (oddp n) (+ n 1) n)))
+;        until (>= candidate-nr n-candidates)
+;        for random-nr = (random (size p))
+;        do (unless (member random-nr candidate-indexes)
+;             (push random-nr candidate-indexes)
+;             (incf candidate-nr))
+;        finally (return (sort (loop for index in candidate-indexes
+;                                    collect (nth-mote p index))
+;                              #'compare-fitness))))
 (defmethod select-tournament-participants ((p population))
   (loop with candidate-indexes = nil
         with candidate-nr = 0
-        with n-candidates = (if (<= (size p) 10)
-                                2
-                                (let ((n (floor (* 0.2 (size p)))))
-                                  (if (oddp n) (+ n 1) n)))
-        until (>= candidate-nr n-candidates)
+        until (>= candidate-nr (size p))
         for random-nr = (random (size p))
-        do (unless (member random-nr candidate-indexes)
-             (push random-nr candidate-indexes)
-             (incf candidate-nr))
-        finally (return (sort (loop for index in candidate-indexes
-                                    collect (nth-mote p index))
-                              (lambda (a b)
-                                (> (fitness a) (fitness b)))))))
+        do (push random-nr candidate-indexes)
+           (incf candidate-nr)
+        finally (return (loop for index in candidate-indexes
+                              collect (nth-mote p index)))))
 
 
-(defmethod sort-motes ((obj population))
-  "Sorts (MOTES OBJ) from best fitness to worst fitness."
-  (setf (motes obj)
-        (sort (motes obj) (lambda (a b) (> (fitness a) (fitness b))))))
+
+(defmethod sort-motes ((population population))
+  "Sorts (MOTES POPULATION) from best fitness to worst fitness."
+  (setf (motes population) (sort (motes population) #'compare-fitness)))
