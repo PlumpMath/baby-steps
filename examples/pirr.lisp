@@ -48,7 +48,7 @@
     (:terminal ,#'random-int-0-10          :type integer)))
 
 
-;;; Functions & Methods
+;;; Functions
 
 (defun calculate-fitness (mote)
   (unless (fn mote)
@@ -61,10 +61,6 @@
         ;; basic accumulation of diffs
         ;finally (return (/ 1 aggregate-diff))))
         ;; bias towards fewer nodes
-        ;finally (return (/ 1 aggregate-diff (n-nodes mote)))))
-        ;finally (return (/ 1 aggregate-diff (sqrt (n-nodes mote))))))
-        ;finally (return (/ 1 (sqrt aggregate-diff) (n-nodes mote)))))
-        ;; this seems to work best with (example-run :runs 5000 :size 32)
         finally (return (/ 1 (sqrt aggregate-diff) (sqrt (n-nodes mote))))))
 
 
@@ -118,8 +114,10 @@
   (loop repeat generations
         for i from 0
         for lm = (length (motes population))
-        do (advance-generation population :method :tournament)
-           (update-population population)
+        do (set-fitness-for-whole-population population)
+           (advance-generation population :method :tournament)
+           (replace-invalid-motes population)
+           (sort-motes population)
            (when debug
              (format t "~4D | ~15,10E | ~15,10E | ~15,10E | ~15,10E~%"
                      i
@@ -135,16 +133,14 @@
   (loop repeat generations
         for i from 0
         for lm = (length (motes population))
-        do (advance-generation population :method :tournament)
-           (update-population population)
+        do (set-fitness-for-whole-population population)
+           (advance-generation population :method :tournament)
+           (replace-invalid-motes population)
+           (sort-motes population)
         collect (list (fitness (nth-mote population 0))
                       (- (fitness (nth-mote population 0))
                          (fitness (nth-mote population
                                             (ceiling (size population) 2)))))))
-
-
-(defun reload ()
-  (load "examples/pirr.lisp"))
 
 
 (defun stats (&optional (samples 10))
@@ -182,7 +178,11 @@
 
 ;;; Main
 
-(defun main (&key (population nil) (generations 50) (size 100))
+(defun reload ()
+  (load "examples/pirr.lisp"))
+
+
+(defun main (&key (population nil) (generations 128) (size 128))
   (let ((p (if population
                population
                (create-population *operators* *terminals* :size size))))
