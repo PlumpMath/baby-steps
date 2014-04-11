@@ -15,6 +15,20 @@
                  :tree (copy-tree (tree mote))))
 
 
+(defun copy-population (population)
+  "Returns a new POPULATION instance with the same slot values as POPULATION.
+  The motes are copied using COPY-MOTE."
+  (let ((copy (make-instance 'population
+                             :operators (operators population)
+                             :motes (make-array (size population) :adjustable t
+                                                :fill-pointer 0)
+                             :size (size population)
+                             :terminals (terminals population))))
+    (loop for mote across (motes population)
+          do (add-to-population copy (copy-mote mote)))
+    copy))
+
+
 (defun create-mote (operators terminals &key (debug nil) (max-depth 4)
                     (max-operator-arity 4) (method :grow))
   "Creates a new MOTE instance.  FITNESS will be NIL, it is the reponsability
@@ -72,6 +86,8 @@
   OPERATORS until MAX-DEPTH is 0 at which point this function will only
   generate TERMINALS.
   MAX-DEPTH must be an integer equal to or greater than 0."
+  ;(declare (inline elt getf random subtypep)
+  ;         (optimize (speed 3)))
   (let ((op (random-elt operators)))
     (append (list (getf op :operator))
             (loop with arity = (getf op :arity)
@@ -93,6 +109,8 @@
                                 (max-operator-arity 4))
   "Generates a random tree using OPERATORS and TERMINALS.
   MAX-DEPTH must be an integer equal to or greater than 0."
+  ;(declare (inline elt getf random subtypep)
+  ;         (optimize (speed 3)))
   (let ((op (random-elt operators)))
     (append (list (getf op :operator))
             (loop with arity = (getf op :arity)

@@ -9,12 +9,12 @@
 
 ;;; Functions & Methods
 
-(defmethod nth-mote ((p population) index)
-  (elt (motes p) index))
+(defun nth-mote (population index)
+  (elt (motes population) index))
 
 
-(defmethod print-trees ((p population))
-  (loop for mote across (motes p)
+(defun print-trees (population)
+  (loop for mote across (motes population)
         for i from 0
         do (format t "--- ~D ---~%~S~%" i (tree mote))))
 
@@ -36,6 +36,7 @@
       (traverse-nodes tree))))
 
 
+;; XXX seems a suboptimal approach
 (defun replace-node (tree node-index new-node)
   "Returns a new tree with NEW-NODE at NODE-INDEX of TREE."
   (let ((index 0))
@@ -51,8 +52,3 @@
                                (listp node))
                        collect (traverse-nodes node))))
       (traverse-nodes tree))))
-
-
-(defun run-tree (tree terminals input)
-  "Turns TREE into a function and calls it with INPUT."
-  (funcall (make-function tree terminals) input))
